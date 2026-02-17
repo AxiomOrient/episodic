@@ -1,0 +1,24 @@
+[package]
+name = "episodic"
+version = "0.1.0"
+edition = "2024"
+description = "Reusable Observational Memory core models and pure transforms."
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/AxiomOrient/episodic"
+homepage = "https://github.com/AxiomOrient/episodic"
+documentation = "https://docs.rs/episodic"
+include = [
+    "/src/**",
+    "/tests/**",
+    "/Cargo.toml",
+    "/README.md",
+]
+
+[dependencies]
+chrono = { version = "0.4.41", features = ["serde"] }
+serde = { version = "1.0.219", features = ["derive"] }
+thiserror = "2.0.12"
+
+[dev-dependencies]
+serde_json = "1.0.142"

@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+
+# macOS
+.DS_Store
+
+# IDE/editor
+.idea/
+.vscode/
+
+# Env/local overrides
+.env
+.env.*
+!.env.example
+
+# Rust library repos usually do not commit lockfile
+/Cargo.lock
