@@ -214,6 +214,13 @@ pub fn validate_om_record_invariants(record: &OmRecord) -> Vec<OmRecordInvariant
                 },
             );
         }
+        if record.reflected_observation_line_count.is_some() {
+            violations.push(
+                OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
+                    field: "reflected_observation_line_count",
+                },
+            );
+        }
     }
 
     violations

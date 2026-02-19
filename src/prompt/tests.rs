@@ -27,6 +27,7 @@ fn observer_prompt_includes_required_sections() {
     assert!(prompt.contains("## Previous Observations"));
     assert!(prompt.contains("## New Message History to Observe"));
     assert!(prompt.contains("**User"));
+    assert!(!prompt.contains("observed_message_ids"));
 }
 
 #[test]
@@ -147,4 +148,26 @@ fn format_observer_messages_for_prompt_uses_unknown_role_and_skips_invalid_times
         created_at_rfc3339: Some("not-a-timestamp".to_string()),
     }]);
     assert_eq!(formatted, "**Unknown [id:m1]:**\nhello");
+}
+
+#[test]
+fn format_observer_messages_for_prompt_sanitizes_message_id() {
+    let formatted = format_observer_messages_for_prompt(&[OmPendingMessage {
+        id: " a]\n:b\tc ".to_string(),
+        role: "user".to_string(),
+        text: "hello".to_string(),
+        created_at_rfc3339: None,
+    }]);
+    assert_eq!(formatted, "**User [id:a_b_c]:**\nhello");
+}
+
+#[test]
+fn format_observer_messages_for_prompt_omits_id_when_sanitized_id_is_empty() {
+    let formatted = format_observer_messages_for_prompt(&[OmPendingMessage {
+        id: "[]:\n\t".to_string(),
+        role: "user".to_string(),
+        text: "hello".to_string(),
+        created_at_rfc3339: None,
+    }]);
+    assert_eq!(formatted, "**User:**\nhello");
 }

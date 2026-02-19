@@ -1,91 +1,68 @@
 # episodic
 
-`episodic` is a pure Observational Memory (OM) core for agentic runtimes.
+`episodic`은 에이전트용 관찰 메모리(Observational Memory, OM) 코어 크레이트입니다.  
+핵심 목표는 데이터 모델을 명시적으로 유지하고, 의사결정을 순수 함수로 분리하는 것입니다.
 
-It gives you explicit data types and deterministic transforms for:
-- observing new messages
-- buffering/activating observations
-- deciding reflection timing
-- parsing structured model output
+## Scope (MECE)
 
-## Design contract
-- Data-first: state is explicit (`OmRecord`, `OmObservationChunk`).
-- Pure transforms: decisions are return values, not hidden side effects.
-- Explicit control: strict vs lenient parse modes are selectable.
-- No runtime lock-in: storage/network/model calls are outside this crate.
+아래 책임은 상호배타(Mutually Exclusive)하며 전체를 포괄(Collectively Exhaustive)합니다.
 
-## What this crate does not do
-- no DB/storage adapter
-- no network/model transport
-- no host workflow orchestration
+1. Domain State
+- 소유: 영속 메모리 상태와 불변성 검증
+- 파일: `src/model.rs`
 
-## Install
+2. Inference DTO
+- 소유: observer/reflector 요청·응답 계약
+- 파일: `src/inference.rs`
 
-```toml
-[dependencies]
-episodic = "0.1.0"
-```
+3. Config Resolution
+- 소유: 입력 검증, 기본값, 런타임 설정 해석
+- 파일: `src/config/*`
 
-## Quick usage
+4. Prompt Construction
+- 소유: system/user 프롬프트 조립, 메시지 포맷 안전화
+- 파일: `src/prompt/*`
 
-### 1) Resolve OM config
+5. Parse Engine
+- 소유: XML 유사 출력 파싱(Strict/Lenient + accuracy-first 중재)
+- 파일: `src/parse/*`
 
-```rust
-use episodic::{
-    BufferTokensInput, ObservationConfigInput, OmConfigInput, OmScope, ReflectionConfigInput,
-    resolve_om_config,
-};
+6. Pure Transform Engine
+- 소유: 활성화/관측/반사 의사결정 및 텍스트 변환
+- 파일: `src/transform/*`
 
-let resolved = resolve_om_config(OmConfigInput {
-    scope: OmScope::Thread,
-    share_token_budget: false,
-    observation: ObservationConfigInput {
-        message_tokens: Some(30_000),
-        max_tokens_per_batch: Some(10_000),
-        buffer_tokens: Some(BufferTokensInput::Ratio(0.2)),
-        buffer_activation: Some(0.8),
-        block_after: Some(1.2),
-    },
-    reflection: ReflectionConfigInput {
-        observation_tokens: Some(40_000),
-        buffer_activation: Some(0.5),
-        block_after: Some(1.2),
-    },
-})
-.expect("valid OM config");
-```
+7. Pipeline Planning
+- 소유: 입력/출력 단계 실행 계획 계산(부작용 없음)
+- 파일: `src/pipeline.rs`
 
-### 2) Parse observer XML safely
+8. Host Ports
+- 소유: 런타임 어댑터 경계(적용/관측/반사 트레이트, 커맨드 타입)
+- 파일: `src/addon.rs`
 
-```rust
-use episodic::parse_memory_section_xml_accuracy_first;
+9. Utility
+- 소유: bounded hint, XML escape
+- 파일: `src/context.rs`, `src/xml.rs`
 
-let parsed = parse_memory_section_xml_accuracy_first(
-    "<observations>\n* High: User prefers direct answers\n</observations>\n\
-     <current-task>Primary: implement API</current-task>"
-);
+## Non-goals
 
-assert!(parsed.observations.contains("User prefers direct answers"));
-```
+- 스토리지/DB 어댑터
+- 네트워크 전송
+- 모델 호출 런타임 오케스트레이션
 
-### 3) Build a bounded runtime hint
+위 항목은 호스트 통합 레이어 책임입니다.
 
-```rust
-use episodic::build_bounded_observation_hint;
+## Readme Index
 
-let hint = build_bounded_observation_hint("a\nb\nc", 2, 32);
-assert_eq!(hint.as_deref(), Some("om: b c"));
-```
+- `/Users/axient/repository/episodic/src/README.md`
+- `/Users/axient/repository/episodic/src/config/README.md`
+- `/Users/axient/repository/episodic/src/parse/README.md`
+- `/Users/axient/repository/episodic/src/prompt/README.md`
+- `/Users/axient/repository/episodic/src/transform/README.md`
+- `/Users/axient/repository/episodic/src/transform/observer/README.md`
+- `/Users/axient/repository/episodic/src/transform/reflection/README.md`
+- `/Users/axient/repository/episodic/src/transform/tests/README.md`
+- `/Users/axient/repository/episodic/tests/README.md`
 
-## Host integration flow
-1. Keep `OmRecord` and buffered `OmObservationChunk` in your own store.
-2. Use `plan_process_input_step` to decide observer/reflection actions.
-3. Use transform functions (`decide_observer_write_action`, `decide_reflection_enqueue`, `activate_buffered_observations`) to update state deterministically.
-4. Call your own observer/reflector backend through addon ports (`OmObserverAddon`, `OmReflectorAddon`, `OmApplyAddon`).
+## Deferred Decisions
 
-## API surface (starting points)
-- model/contracts: `OmRecord`, `OmObservationChunk`, `OmObserverRequest`, `OmReflectorRequest`
-- config: `resolve_om_config`
-- parser: `parse_memory_section_xml_accuracy_first`, `parse_multi_thread_observer_output_accuracy_first`
-- planners: `plan_process_input_step`, `plan_process_output_result`
-- transforms: `select_activation_boundary`, `decide_observer_write_action`, `decide_reflection_enqueue`
+- `/Users/axient/repository/episodic/DECISIONS.md`

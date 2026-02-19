@@ -180,6 +180,7 @@ fn om_record_invariants_report_empty_identifiers_and_orphan_reflection_metadata(
     record.buffered_reflection = None;
     record.buffered_reflection_tokens = Some(11);
     record.buffered_reflection_input_tokens = Some(12);
+    record.reflected_observation_line_count = Some(7);
 
     let violations = validate_om_record_invariants(&record);
     assert!(
@@ -199,6 +200,11 @@ fn om_record_invariants_report_empty_identifiers_and_orphan_reflection_metadata(
             field: "buffered_reflection_input_tokens",
         }
     ));
+    assert!(violations.contains(
+        &OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
+            field: "reflected_observation_line_count",
+        }
+    ));
 }
 
 #[test]
@@ -207,6 +213,7 @@ fn om_record_invariants_report_empty_scope_key_and_empty_buffered_reflection() {
     record.scope_key = " ".to_string();
     record.buffered_reflection = Some(" \n\t ".to_string());
     record.buffered_reflection_tokens = Some(11);
+    record.reflected_observation_line_count = Some(2);
 
     let violations = validate_om_record_invariants(&record);
     assert!(violations.contains(&OmRecordInvariantViolation::EmptyScopeKey));
@@ -214,6 +221,11 @@ fn om_record_invariants_report_empty_scope_key_and_empty_buffered_reflection() {
     assert!(violations.contains(
         &OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
             field: "buffered_reflection_tokens",
+        }
+    ));
+    assert!(violations.contains(
+        &OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
+            field: "reflected_observation_line_count",
         }
     ));
 }

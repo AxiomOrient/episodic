@@ -31,31 +31,43 @@ pub fn build_reflection_draft(
     }
     let lines = active_observations
         .lines()
-        .map(str::trim)
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|line| !line.is_empty())
-        .map(ToString::to_string)
         .collect::<Vec<_>>();
     if lines.is_empty() {
         return None;
     }
 
     let reflection_input = lines.join(" ");
-    let reflection_input = reflection_input
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    if reflection_input.is_empty() {
-        return None;
-    }
-
     let reflection = reflection_input.chars().take(max_chars).collect::<String>();
     if reflection.is_empty() {
         return None;
     }
 
+    // Count only fully represented source lines so downstream merge never over-replaces.
+    let mut reflected_line_count = 0usize;
+    let mut consumed_chars = 0usize;
+    for line in &lines {
+        let line_chars = line.chars().count();
+        let required = if reflected_line_count == 0 {
+            line_chars
+        } else {
+            line_chars.saturating_add(1)
+        };
+        if consumed_chars.saturating_add(required) <= max_chars {
+            consumed_chars = consumed_chars.saturating_add(required);
+            reflected_line_count += 1;
+        } else {
+            break;
+        }
+    }
+    if reflected_line_count == 0 {
+        return None;
+    }
+
     Some(ReflectionDraft {
         reflection_token_count: estimate_text_tokens(&reflection),
-        reflected_observation_line_count: lines.len().min(u32::MAX as usize) as u32,
+        reflected_observation_line_count: reflected_line_count.min(u32::MAX as usize) as u32,
         reflection_input_tokens: estimate_text_tokens(&reflection_input),
         reflection,
     })

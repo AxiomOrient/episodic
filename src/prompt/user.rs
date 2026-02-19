@@ -46,7 +46,7 @@ pub fn build_observer_user_prompt(input: OmObserverPromptInput<'_>) -> String {
 
     prompt.push_str("## Your Task\n\n");
     prompt.push_str(
-        "Extract new observations from the message history. Keep observations factual and concise. Do not duplicate previous observations. observed_message_ids must use only provided ids.",
+        "Extract new observations from the message history. Keep observations factual and concise. Do not duplicate previous observations. Follow the XML output contract exactly.",
     );
     if input.skip_continuation_hints {
         prompt.push_str("\n\n");

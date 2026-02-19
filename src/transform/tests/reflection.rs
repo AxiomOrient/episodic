@@ -22,6 +22,18 @@ fn build_reflection_draft_compacts_non_empty_lines() {
 }
 
 #[test]
+fn build_reflection_draft_counts_only_fully_represented_lines_when_truncated() {
+    let draft = build_reflection_draft("a\nbbbb", 3).expect("draft");
+    assert_eq!(draft.reflection, "a b");
+    assert_eq!(draft.reflected_observation_line_count, 1);
+}
+
+#[test]
+fn build_reflection_draft_returns_none_when_no_full_line_fits() {
+    assert!(build_reflection_draft("abcd\nef", 2).is_none());
+}
+
+#[test]
 fn build_reflection_draft_returns_none_for_empty_text() {
     assert!(build_reflection_draft(" \n\t ", 128).is_none());
 }
