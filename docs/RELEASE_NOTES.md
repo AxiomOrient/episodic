@@ -1,5 +1,18 @@
 # Release Notes
 
+## 0.2.1 (2026-03-05)
+
+### Highlights
+- Prompt/user XML data block handling hardened:
+  - `request_json` is escaped and isolated as explicit data payload.
+- Reflection apply and model tests extended for deterministic entry-level behavior.
+- Prompt/contract and model coverage expanded to reduce protocol drift risk in host integrations.
+
+### Compatibility Impact
+- Crate version bumped from `0.2.0` to `0.2.1`.
+- Protocol version remains `om-v2`; prompt contract remains `2.0.0`.
+- No public protocol field removals/renames in this patch release.
+
 ## 0.2.0 (2026-03-04)
 
 ### Highlights

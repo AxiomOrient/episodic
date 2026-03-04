@@ -102,9 +102,17 @@ fn build_observer_prompt_contract(
         output_contract: OmPromptOutputContractV2 {
             format: "xml".to_string(),
             required_sections: if skip_continuation_hints {
-                vec!["observations".to_string()]
+                vec![
+                    "contract-name".to_string(),
+                    "contract-version".to_string(),
+                    "protocol-version".to_string(),
+                    "observations".to_string(),
+                ]
             } else {
                 vec![
+                    "contract-name".to_string(),
+                    "contract-version".to_string(),
+                    "protocol-version".to_string(),
                     "observations".to_string(),
                     "current-task".to_string(),
                     "suggested-response".to_string(),
@@ -178,9 +186,17 @@ pub fn build_reflector_prompt_contract_v2(
         output_contract: OmPromptOutputContractV2 {
             format: "xml".to_string(),
             required_sections: if skip_continuation_hints {
-                vec!["observations".to_string()]
+                vec![
+                    "contract-name".to_string(),
+                    "contract-version".to_string(),
+                    "protocol-version".to_string(),
+                    "observations".to_string(),
+                ]
             } else {
                 vec![
+                    "contract-name".to_string(),
+                    "contract-version".to_string(),
+                    "protocol-version".to_string(),
                     "observations".to_string(),
                     "current-task".to_string(),
                     "suggested-response".to_string(),

@@ -4,10 +4,12 @@ use serde_json::{Value, json};
 use super::{
     ContinuationPolicyV2, OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION, OmContinuationSourceKind,
     OmContinuationStateV2, OmDeterministicEvidence, OmDeterministicEvidenceKind,
-    OmDeterministicObserverResponseV2, OmHintPolicyV2, OmObservationEntryV2,
-    OmObservationOriginKind, OmObservationPriority, OmOriginType, OmRecord,
-    OmRecordInvariantViolation, OmReflectionResponseV2, OmScope, OmSearchVisibleSnapshotV2,
-    OmThreadRefV2, validate_om_record_invariants,
+    OmDeterministicObserverResponseV2, OmHintPolicyV2, OmObservationEntryInvariantViolation,
+    OmObservationEntryV2, OmObservationOriginKind, OmObservationPriority, OmOriginType, OmRecord,
+    OmRecordInvariantViolation, OmReflectionResponseV2, OmScope,
+    OmSearchVisibleSnapshotInvariantViolation, OmSearchVisibleSnapshotV2, OmThreadRefV2,
+    validate_observation_entry_v2_invariants, validate_om_record_invariants,
+    validate_search_visible_snapshot_v2_invariants,
 };
 
 fn sample_record() -> OmRecord {
@@ -433,4 +435,159 @@ fn search_visible_snapshot_v2_roundtrip_and_optional_field_omission_is_stable() 
     let decoded =
         serde_json::from_value::<OmSearchVisibleSnapshotV2>(encoded).expect("deserialize snapshot");
     assert_eq!(decoded, value);
+}
+
+#[test]
+fn observation_entry_v2_invariants_report_empty_required_fields() {
+    let entry = OmObservationEntryV2 {
+        entry_id: " ".to_string(),
+        scope_key: " ".to_string(),
+        thread_id: " ".to_string(),
+        priority: OmObservationPriority::Medium,
+        text: " ".to_string(),
+        source_message_ids: vec!["m-1".to_string(), " ".to_string()],
+        origin_kind: OmObservationOriginKind::Observation,
+        created_at_rfc3339: " ".to_string(),
+        superseded_by: Some(" ".to_string()),
+    };
+    let violations = validate_observation_entry_v2_invariants(&entry);
+    assert!(
+        violations
+            .contains(&OmObservationEntryInvariantViolation::EmptyField { field: "entry_id" })
+    );
+    assert!(
+        violations
+            .contains(&OmObservationEntryInvariantViolation::EmptyField { field: "scope_key" })
+    );
+    assert!(
+        violations
+            .contains(&OmObservationEntryInvariantViolation::EmptyField { field: "thread_id" })
+    );
+    assert!(
+        violations.contains(&OmObservationEntryInvariantViolation::EmptyField { field: "text" })
+    );
+    assert!(
+        violations.contains(&OmObservationEntryInvariantViolation::EmptyField {
+            field: "created_at_rfc3339"
+        })
+    );
+    assert!(violations.contains(&OmObservationEntryInvariantViolation::EmptySourceMessageId));
+    assert!(violations.contains(&OmObservationEntryInvariantViolation::EmptySupersededBy));
+}
+
+#[test]
+fn observation_entry_v2_invariants_report_invalid_rfc3339_timestamp() {
+    let entry = OmObservationEntryV2 {
+        entry_id: "entry-1".to_string(),
+        scope_key: "thread:t-1".to_string(),
+        thread_id: "t-1".to_string(),
+        priority: OmObservationPriority::Medium,
+        text: "stable observation".to_string(),
+        source_message_ids: vec!["m-1".to_string()],
+        origin_kind: OmObservationOriginKind::Observation,
+        created_at_rfc3339: "not-rfc3339".to_string(),
+        superseded_by: None,
+    };
+    let violations = validate_observation_entry_v2_invariants(&entry);
+    assert!(
+        violations.contains(&OmObservationEntryInvariantViolation::InvalidRfc3339 {
+            field: "created_at_rfc3339",
+            value: "not-rfc3339".to_string(),
+        })
+    );
+}
+
+#[test]
+fn search_visible_snapshot_v2_invariants_validate_snapshot_and_visible_entries() {
+    let snapshot = OmSearchVisibleSnapshotV2 {
+        scope_key: "thread:t-1".to_string(),
+        activated_entry_ids: vec!["a-1".to_string()],
+        buffered_entry_ids: vec!["b-1".to_string()],
+        current_task: Some("ship release".to_string()),
+        suggested_response: None,
+        rendered_hint: Some("om: current-task: ship release".to_string()),
+        materialized_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+        snapshot_version: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION.to_string(),
+        visible_entries: vec![OmObservationEntryV2 {
+            entry_id: "a-1".to_string(),
+            scope_key: "thread:t-1".to_string(),
+            thread_id: "t-1".to_string(),
+            priority: OmObservationPriority::High,
+            text: "priority:high release blockers".to_string(),
+            source_message_ids: vec!["m-1".to_string()],
+            origin_kind: OmObservationOriginKind::Observation,
+            created_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+            superseded_by: None,
+        }],
+    };
+    assert!(validate_search_visible_snapshot_v2_invariants(&snapshot).is_empty());
+
+    let invalid = OmSearchVisibleSnapshotV2 {
+        scope_key: " ".to_string(),
+        activated_entry_ids: vec![" ".to_string()],
+        buffered_entry_ids: vec![" ".to_string()],
+        current_task: None,
+        suggested_response: None,
+        rendered_hint: None,
+        materialized_at_rfc3339: " ".to_string(),
+        snapshot_version: "invalid-version".to_string(),
+        visible_entries: vec![OmObservationEntryV2 {
+            entry_id: "e-1".to_string(),
+            scope_key: "thread:other".to_string(),
+            thread_id: " ".to_string(),
+            priority: OmObservationPriority::Medium,
+            text: " ".to_string(),
+            source_message_ids: vec![" ".to_string()],
+            origin_kind: OmObservationOriginKind::Observation,
+            created_at_rfc3339: " ".to_string(),
+            superseded_by: None,
+        }],
+    };
+    let violations = validate_search_visible_snapshot_v2_invariants(&invalid);
+    assert!(
+        violations.contains(&OmSearchVisibleSnapshotInvariantViolation::EmptyField {
+            field: "scope_key"
+        })
+    );
+    assert!(violations.contains(
+        &OmSearchVisibleSnapshotInvariantViolation::SnapshotVersionMismatch {
+            expected: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION,
+            actual: "invalid-version".to_string(),
+        }
+    ));
+    assert!(violations.contains(&OmSearchVisibleSnapshotInvariantViolation::EmptyActivatedEntryId));
+    assert!(violations.contains(&OmSearchVisibleSnapshotInvariantViolation::EmptyBufferedEntryId));
+    assert!(violations.iter().any(|item| matches!(
+        item,
+        OmSearchVisibleSnapshotInvariantViolation::VisibleEntryScopeMismatch {
+            entry_id,
+            scope_key
+        } if entry_id == "e-1" && scope_key == "thread:other"
+    )));
+    assert!(violations.iter().any(|item| matches!(
+        item,
+        OmSearchVisibleSnapshotInvariantViolation::VisibleEntryInvariant { entry_id, .. } if entry_id == "e-1"
+    )));
+}
+
+#[test]
+fn search_visible_snapshot_v2_invariants_report_invalid_rfc3339_timestamp() {
+    let snapshot = OmSearchVisibleSnapshotV2 {
+        scope_key: "thread:t-1".to_string(),
+        activated_entry_ids: vec!["a-1".to_string()],
+        buffered_entry_ids: vec![],
+        current_task: None,
+        suggested_response: None,
+        rendered_hint: None,
+        materialized_at_rfc3339: "invalid-ts".to_string(),
+        snapshot_version: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION.to_string(),
+        visible_entries: vec![],
+    };
+    let violations = validate_search_visible_snapshot_v2_invariants(&snapshot);
+    assert!(
+        violations.contains(&OmSearchVisibleSnapshotInvariantViolation::InvalidRfc3339 {
+            field: "materialized_at_rfc3339",
+            value: "invalid-ts".to_string(),
+        })
+    );
 }

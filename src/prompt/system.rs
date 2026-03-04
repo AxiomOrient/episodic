@@ -57,7 +57,14 @@ const MEMORY_ROLE_OBSERVER: &str = "You are the memory consciousness of an AI as
 const MEMORY_ROLE_REFLECTOR: &str = "You are the memory consciousness of an AI assistant. Your memory observation reflections will be the ONLY information the assistant has about past interactions with this user.";
 const MEMORY_ONLY_INVARIANT: &str = "Remember: these observations are the assistant's only memory.";
 const USER_PRIORITY_INVARIANT: &str = "If the user asked a new question or gave a new task, ensure <current-task> marks it as priority and <suggested-response> aligns with immediate user-facing continuity.";
+const CONTRACT_MARKER_INVARIANT: &str = r#"Always include these contract markers in XML output:
+<contract-name>axiomme.om.prompt</contract-name>
+<contract-version>2.0.0</contract-version>
+<protocol-version>om-v2</protocol-version>"#;
 const OUTPUT_XML_CONTRACT: &str = r#"Your output MUST use XML tags:
+<contract-name>axiomme.om.prompt</contract-name>
+<contract-version>2.0.0</contract-version>
+<protocol-version>om-v2</protocol-version>
 <observations>...</observations>
 <current-task>...</current-task>
 <suggested-response>...</suggested-response>"#;
@@ -86,6 +93,7 @@ Do NOT add thread identifiers, thread IDs, or <thread> tags in this mode.
 Thread attribution is handled by the system.
 
 {MEMORY_ONLY_INVARIANT}
+{CONTRACT_MARKER_INVARIANT}
 
 User messages are extremely important. If the user asks a question or gives a new task, make it clear in <current-task> that this is the priority. If the assistant needs to respond to the user, indicate in <suggested-response> that it should pause for user reply before continuing other tasks."#
     )
@@ -129,6 +137,7 @@ Continue with implementation
 {OBSERVER_GUIDELINES}
 
 {MEMORY_ONLY_INVARIANT}
+{CONTRACT_MARKER_INVARIANT}
 If user intent changes per thread, preserve it in that thread's <current-task> and <suggested-response>."#
     )
 }

@@ -409,5 +409,148 @@ pub fn validate_om_record_invariants(record: &OmRecord) -> Vec<OmRecordInvariant
     violations
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OmObservationEntryInvariantViolation {
+    EmptyField { field: &'static str },
+    InvalidRfc3339 { field: &'static str, value: String },
+    EmptySourceMessageId,
+    EmptySupersededBy,
+}
+
+pub fn validate_observation_entry_v2_invariants(
+    entry: &OmObservationEntryV2,
+) -> Vec<OmObservationEntryInvariantViolation> {
+    let mut violations = Vec::<OmObservationEntryInvariantViolation>::new();
+    if entry.entry_id.trim().is_empty() {
+        violations.push(OmObservationEntryInvariantViolation::EmptyField { field: "entry_id" });
+    }
+    if entry.scope_key.trim().is_empty() {
+        violations.push(OmObservationEntryInvariantViolation::EmptyField { field: "scope_key" });
+    }
+    if entry.thread_id.trim().is_empty() {
+        violations.push(OmObservationEntryInvariantViolation::EmptyField { field: "thread_id" });
+    }
+    if entry.text.trim().is_empty() {
+        violations.push(OmObservationEntryInvariantViolation::EmptyField { field: "text" });
+    }
+    if entry.created_at_rfc3339.trim().is_empty() {
+        violations.push(OmObservationEntryInvariantViolation::EmptyField {
+            field: "created_at_rfc3339",
+        });
+    } else if DateTime::parse_from_rfc3339(&entry.created_at_rfc3339).is_err() {
+        violations.push(OmObservationEntryInvariantViolation::InvalidRfc3339 {
+            field: "created_at_rfc3339",
+            value: entry.created_at_rfc3339.clone(),
+        });
+    }
+    if entry
+        .source_message_ids
+        .iter()
+        .any(|id| id.trim().is_empty())
+    {
+        violations.push(OmObservationEntryInvariantViolation::EmptySourceMessageId);
+    }
+    if entry
+        .superseded_by
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        violations.push(OmObservationEntryInvariantViolation::EmptySupersededBy);
+    }
+    violations
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OmSearchVisibleSnapshotInvariantViolation {
+    EmptyField {
+        field: &'static str,
+    },
+    InvalidRfc3339 {
+        field: &'static str,
+        value: String,
+    },
+    SnapshotVersionMismatch {
+        expected: &'static str,
+        actual: String,
+    },
+    EmptyActivatedEntryId,
+    EmptyBufferedEntryId,
+    VisibleEntryScopeMismatch {
+        entry_id: String,
+        scope_key: String,
+    },
+    VisibleEntryInvariant {
+        entry_id: String,
+        violation: OmObservationEntryInvariantViolation,
+    },
+}
+
+pub fn validate_search_visible_snapshot_v2_invariants(
+    snapshot: &OmSearchVisibleSnapshotV2,
+) -> Vec<OmSearchVisibleSnapshotInvariantViolation> {
+    let mut violations = Vec::<OmSearchVisibleSnapshotInvariantViolation>::new();
+    if snapshot.scope_key.trim().is_empty() {
+        violations
+            .push(OmSearchVisibleSnapshotInvariantViolation::EmptyField { field: "scope_key" });
+    }
+    if snapshot.materialized_at_rfc3339.trim().is_empty() {
+        violations.push(OmSearchVisibleSnapshotInvariantViolation::EmptyField {
+            field: "materialized_at_rfc3339",
+        });
+    } else if DateTime::parse_from_rfc3339(&snapshot.materialized_at_rfc3339).is_err() {
+        violations.push(OmSearchVisibleSnapshotInvariantViolation::InvalidRfc3339 {
+            field: "materialized_at_rfc3339",
+            value: snapshot.materialized_at_rfc3339.clone(),
+        });
+    }
+    if snapshot.snapshot_version.trim().is_empty() {
+        violations.push(OmSearchVisibleSnapshotInvariantViolation::EmptyField {
+            field: "snapshot_version",
+        });
+    } else if snapshot.snapshot_version != OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION {
+        violations.push(
+            OmSearchVisibleSnapshotInvariantViolation::SnapshotVersionMismatch {
+                expected: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION,
+                actual: snapshot.snapshot_version.clone(),
+            },
+        );
+    }
+    if snapshot
+        .activated_entry_ids
+        .iter()
+        .any(|entry_id| entry_id.trim().is_empty())
+    {
+        violations.push(OmSearchVisibleSnapshotInvariantViolation::EmptyActivatedEntryId);
+    }
+    if snapshot
+        .buffered_entry_ids
+        .iter()
+        .any(|entry_id| entry_id.trim().is_empty())
+    {
+        violations.push(OmSearchVisibleSnapshotInvariantViolation::EmptyBufferedEntryId);
+    }
+
+    for entry in &snapshot.visible_entries {
+        if entry.scope_key.trim() != snapshot.scope_key.trim() {
+            violations.push(
+                OmSearchVisibleSnapshotInvariantViolation::VisibleEntryScopeMismatch {
+                    entry_id: entry.entry_id.clone(),
+                    scope_key: entry.scope_key.clone(),
+                },
+            );
+        }
+        for violation in validate_observation_entry_v2_invariants(entry) {
+            violations.push(
+                OmSearchVisibleSnapshotInvariantViolation::VisibleEntryInvariant {
+                    entry_id: entry.entry_id.clone(),
+                    violation,
+                },
+            );
+        }
+    }
+
+    violations
+}
+
 #[cfg(test)]
 mod tests;

@@ -30,9 +30,12 @@ pub use model::{
     ContinuationPolicyV2, OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION, OmContinuationCandidateV2,
     OmContinuationSourceKind, OmContinuationStateV2, OmDeterministicEvidence,
     OmDeterministicEvidenceKind, OmDeterministicObserverResponseV2, OmHintPolicyV2,
-    OmObservationChunk, OmObservationEntryV2, OmObservationOriginKind, OmObservationPriority,
-    OmOriginType, OmRecord, OmRecordInvariantViolation, OmReflectionResponseV2, OmScope,
-    OmSearchVisibleSnapshotV2, OmThreadRefV2, validate_om_record_invariants,
+    OmObservationChunk, OmObservationEntryInvariantViolation, OmObservationEntryV2,
+    OmObservationOriginKind, OmObservationPriority, OmOriginType, OmRecord,
+    OmRecordInvariantViolation, OmReflectionResponseV2, OmScope,
+    OmSearchVisibleSnapshotInvariantViolation, OmSearchVisibleSnapshotV2, OmThreadRefV2,
+    validate_observation_entry_v2_invariants, validate_om_record_invariants,
+    validate_search_visible_snapshot_v2_invariants,
 };
 pub use parse::{
     OmMemorySection, OmMultiThreadObserverAggregate, OmMultiThreadObserverSection, OmParseMode,

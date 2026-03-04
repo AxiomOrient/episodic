@@ -198,6 +198,44 @@ fn apply_reflection_response_v2_is_stable_under_line_wrap_perturbation() {
 }
 
 #[test]
+fn apply_reflection_response_v2_noops_when_required_reflection_metadata_is_blank() {
+    let entries = vec![
+        observation_entry("e-1", "alpha"),
+        observation_entry("e-2", "beta"),
+    ];
+    let response = OmReflectionResponseV2 {
+        covers_entry_ids: vec!["e-1".to_string()],
+        reflection_text: "summary alpha".to_string(),
+        current_task: None,
+        suggested_response: None,
+    };
+
+    let missing_scope = apply_reflection_response_v2(
+        &entries,
+        &response,
+        "refl-1",
+        " ",
+        "t-1",
+        "2026-03-04T00:01:00Z",
+    );
+    assert_eq!(missing_scope, entries);
+
+    let missing_thread = apply_reflection_response_v2(
+        &entries,
+        &response,
+        "refl-1",
+        "thread:t-1",
+        " ",
+        "2026-03-04T00:01:00Z",
+    );
+    assert_eq!(missing_thread, entries);
+
+    let missing_created_at =
+        apply_reflection_response_v2(&entries, &response, "refl-1", "thread:t-1", "t-1", " ");
+    assert_eq!(missing_created_at, entries);
+}
+
+#[test]
 fn build_reflection_draft_compacts_non_empty_lines() {
     let draft = build_reflection_draft("a \n\nb   c\n d", 16).expect("draft");
     assert_eq!(draft.covered_observations, "a\nb   c\nd");

@@ -35,6 +35,15 @@ pub fn apply_reflection_response_v2(
     let Some(reflection_id) = normalize_text(reflection_entry_id) else {
         return entries.to_vec();
     };
+    let Some(normalized_scope_key) = normalize_text(scope_key) else {
+        return entries.to_vec();
+    };
+    let Some(normalized_thread_id) = normalize_text(thread_id) else {
+        return entries.to_vec();
+    };
+    let Some(normalized_created_at) = normalize_text(created_at_rfc3339) else {
+        return entries.to_vec();
+    };
     let Some(reflection_text) = normalize_text(&response.reflection_text) else {
         return entries.to_vec();
     };
@@ -70,29 +79,26 @@ pub fn apply_reflection_response_v2(
         .iter_mut()
         .find(|entry| entry.entry_id == reflection_id)
     {
-        existing.scope_key =
-            normalize_text(scope_key).unwrap_or_else(|| existing.scope_key.clone());
-        existing.thread_id =
-            normalize_text(thread_id).unwrap_or_else(|| existing.thread_id.clone());
+        existing.scope_key = normalized_scope_key;
+        existing.thread_id = normalized_thread_id;
         existing.priority = OmObservationPriority::Medium;
         existing.text = reflection_text;
         existing.origin_kind = OmObservationOriginKind::Reflection;
         existing.source_message_ids = reflection_source_ids.into_iter().collect::<Vec<_>>();
-        existing.created_at_rfc3339 = normalize_text(created_at_rfc3339)
-            .unwrap_or_else(|| existing.created_at_rfc3339.clone());
+        existing.created_at_rfc3339 = normalized_created_at;
         existing.superseded_by = None;
         return next;
     }
 
     next.push(OmObservationEntryV2 {
         entry_id: reflection_id,
-        scope_key: normalize_text(scope_key).unwrap_or_default(),
-        thread_id: normalize_text(thread_id).unwrap_or_default(),
+        scope_key: normalized_scope_key,
+        thread_id: normalized_thread_id,
         priority: OmObservationPriority::Medium,
         text: reflection_text,
         source_message_ids: reflection_source_ids.into_iter().collect::<Vec<_>>(),
         origin_kind: OmObservationOriginKind::Reflection,
-        created_at_rfc3339: normalize_text(created_at_rfc3339).unwrap_or_default(),
+        created_at_rfc3339: normalized_created_at,
         superseded_by: None,
     });
     next
