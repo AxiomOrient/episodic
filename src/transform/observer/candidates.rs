@@ -43,7 +43,7 @@ pub fn filter_observer_candidates_by_last_observed_at(
     };
     candidates
         .iter()
-        .filter(|candidate| candidate.created_at > cutoff)
+        .filter(|candidate| candidate.created_at >= cutoff)
         .cloned()
         .collect::<Vec<_>>()
 }

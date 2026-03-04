@@ -53,9 +53,18 @@ const OBSERVER_GUIDELINES: &str = r#"- Be specific enough for future action.
 - Preserve line-level references when code context matters.
 - Capture what happened and what it implies."#;
 
+const MEMORY_ROLE_OBSERVER: &str = "You are the memory consciousness of an AI assistant. Your observations will be the ONLY information the assistant has about past interactions with this user.";
+const MEMORY_ROLE_REFLECTOR: &str = "You are the memory consciousness of an AI assistant. Your memory observation reflections will be the ONLY information the assistant has about past interactions with this user.";
+const MEMORY_ONLY_INVARIANT: &str = "Remember: these observations are the assistant's only memory.";
+const USER_PRIORITY_INVARIANT: &str = "If the user asked a new question or gave a new task, ensure <current-task> marks it as priority and <suggested-response> aligns with immediate user-facing continuity.";
+const OUTPUT_XML_CONTRACT: &str = r#"Your output MUST use XML tags:
+<observations>...</observations>
+<current-task>...</current-task>
+<suggested-response>...</suggested-response>"#;
+
 pub fn build_observer_system_prompt() -> String {
     format!(
-        r#"You are the memory consciousness of an AI assistant. Your observations will be the ONLY information the assistant has about past interactions with this user.
+        r#"{MEMORY_ROLE_OBSERVER}
 
 Extract observations that will help the assistant remember:
 
@@ -76,7 +85,7 @@ Your output MUST use XML tags to structure the response:
 Do NOT add thread identifiers, thread IDs, or <thread> tags in this mode.
 Thread attribution is handled by the system.
 
-Remember: these observations are the assistant's only memory.
+{MEMORY_ONLY_INVARIANT}
 
 User messages are extremely important. If the user asks a question or gives a new task, make it clear in <current-task> that this is the priority. If the assistant needs to respond to the user, indicate in <suggested-response> that it should pause for user reply before continuing other tasks."#
     )
@@ -84,7 +93,7 @@ User messages are extremely important. If the user asks a question or gives a ne
 
 pub fn build_multi_thread_observer_system_prompt() -> String {
     format!(
-        r#"You are the memory consciousness of an AI assistant. Your observations will be the ONLY information the assistant has about past interactions with this user.
+        r#"{MEMORY_ROLE_OBSERVER}
 
 Extract observations that will help the assistant remember:
 
@@ -119,14 +128,14 @@ Continue with implementation
 
 {OBSERVER_GUIDELINES}
 
-Remember: these observations are the assistant's only memory.
+{MEMORY_ONLY_INVARIANT}
 If user intent changes per thread, preserve it in that thread's <current-task> and <suggested-response>."#
     )
 }
 
 pub fn build_reflector_system_prompt() -> String {
     format!(
-        r#"You are the memory consciousness of an AI assistant. Your memory observation reflections will be the ONLY information the assistant has about past interactions with this user.
+        r#"{MEMORY_ROLE_REFLECTOR}
 
 The following instructions were given to another part of your psyche (the observer) to create memories.
 Use this to understand how observations were created.
@@ -168,11 +177,8 @@ When observations include thread sections:
 
 === OUTPUT FORMAT ===
 
-Your output MUST use XML tags:
-<observations>...</observations>
-<current-task>...</current-task>
-<suggested-response>...</suggested-response>
+{OUTPUT_XML_CONTRACT}
 
-If the user asked a new question or gave a new task, ensure <current-task> marks it as priority and <suggested-response> aligns with immediate user-facing continuity."#
+{USER_PRIORITY_INVARIANT}"#
     )
 }

@@ -61,7 +61,6 @@ pub struct OmReflectorRequest {
 pub struct OmReflectorResponse {
     pub reflection: String,
     pub reflection_token_count: u32,
-    pub reflected_observation_line_count: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_task: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

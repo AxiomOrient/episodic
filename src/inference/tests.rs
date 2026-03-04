@@ -55,6 +55,30 @@ fn observer_request_deserialization_defaults_optional_fields_to_none() {
 }
 
 #[test]
+fn observer_request_serialization_skips_none_optional_fields() {
+    let request = OmObserverRequest {
+        scope: OmScope::Session,
+        scope_key: "session:s-1".to_string(),
+        model: sample_model(),
+        active_observations: "obs".to_string(),
+        other_conversations: None,
+        pending_messages: vec![OmPendingMessage {
+            id: "m-1".to_string(),
+            role: "user".to_string(),
+            text: "hello".to_string(),
+            created_at_rfc3339: None,
+        }],
+    };
+    let encoded = serde_json::to_value(&request).expect("serialize");
+    assert!(encoded.get("other_conversations").is_none());
+    assert!(
+        encoded["pending_messages"][0]
+            .get("created_at_rfc3339")
+            .is_none()
+    );
+}
+
+#[test]
 fn observer_response_roundtrip_skips_optional_fields_when_none() {
     let response = OmObserverResponse {
         observations: "Date: Feb 13, 2026\n* info".to_string(),
@@ -91,7 +115,6 @@ fn reflector_request_and_response_roundtrip_support_optional_fields() {
     let response = OmReflectorResponse {
         reflection: "condensed observations".to_string(),
         reflection_token_count: 55,
-        reflected_observation_line_count: 12,
         current_task: Some("finish patch".to_string()),
         suggested_response: Some("apply and verify".to_string()),
         usage: OmInferenceUsage {

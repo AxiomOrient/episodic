@@ -36,14 +36,13 @@ pub const BUFFERED_OBSERVATIONS_SEPARATOR: &str = "--- BUFFERED (pending activat
 pub struct ReflectionDraft {
     pub reflection: String,
     pub reflection_token_count: u32,
-    pub reflected_observation_line_count: u32,
+    pub covered_observations: String,
     pub reflection_input_tokens: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BufferedReflectionSlicePlan {
     pub sliced_observations: String,
-    pub reflected_observation_line_count: u32,
     pub slice_token_estimate: u32,
     pub compression_target_tokens: u32,
 }

@@ -33,7 +33,6 @@ fn sample_record() -> OmRecord {
         buffered_reflection: None,
         buffered_reflection_tokens: None,
         buffered_reflection_input_tokens: None,
-        reflected_observation_line_count: None,
         created_at: now,
         updated_at: now,
     }
@@ -134,4 +133,62 @@ fn process_input_step_plan_non_initial_step_does_not_activate_before_observer() 
     assert!(!plan.should_activate_buffered_before_observer);
     assert!(plan.should_run_observer);
     assert!(plan.reflection_decision.is_some());
+}
+
+#[test]
+fn process_input_step_plan_skips_pre_activation_when_no_buffered_chunks_exist() {
+    let record = sample_record();
+    let plan = plan_process_input_step(
+        &record,
+        ResolvedObservationConfig {
+            message_tokens_base: 30_000,
+            total_budget: None,
+            max_tokens_per_batch: 10_000,
+            buffer_tokens: Some(6_000),
+            buffer_activation: Some(0.8),
+            block_after: Some(36_000),
+        },
+        ResolvedReflectionConfig {
+            observation_tokens: 40_000,
+            buffer_activation: Some(0.5),
+            block_after: Some(48_000),
+        },
+        "2026-01-01T00:00:00Z",
+        ProcessInputStepOptions {
+            is_initial_step: true,
+            read_only: false,
+            has_buffered_observation_chunks: false,
+        },
+    );
+    assert!(!plan.should_activate_buffered_before_observer);
+    assert!(plan.should_run_observer);
+}
+
+#[test]
+fn process_input_step_plan_sync_mode_never_activates_buffered_before_observer() {
+    let record = sample_record();
+    let plan = plan_process_input_step(
+        &record,
+        ResolvedObservationConfig {
+            message_tokens_base: 30_000,
+            total_budget: None,
+            max_tokens_per_batch: 10_000,
+            buffer_tokens: None,
+            buffer_activation: None,
+            block_after: None,
+        },
+        ResolvedReflectionConfig {
+            observation_tokens: 40_000,
+            buffer_activation: None,
+            block_after: None,
+        },
+        "2026-01-01T00:00:00Z",
+        ProcessInputStepOptions {
+            is_initial_step: true,
+            read_only: false,
+            has_buffered_observation_chunks: true,
+        },
+    );
+    assert!(!plan.should_activate_buffered_before_observer);
+    assert!(plan.should_run_observer);
 }

@@ -197,6 +197,133 @@
         "reflection": {}
       },
       "expect_error": "InvalidObservationBlockAfter"
+    },
+    {
+      "name": "observation_message_tokens_zero_is_rejected",
+      "input": {
+        "scope": "thread",
+        "share_token_budget": false,
+        "observation": {
+          "message_tokens": 0
+        },
+        "reflection": {}
+      },
+      "expect_error": "InvalidObservationMessageTokens"
+    },
+    {
+      "name": "reflection_observation_tokens_zero_is_rejected",
+      "input": {
+        "scope": "thread",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {
+          "observation_tokens": 0
+        }
+      },
+      "expect_error": "InvalidReflectionObservationTokens"
+    },
+    {
+      "name": "observation_buffer_absolute_zero_is_rejected",
+      "input": {
+        "scope": "thread",
+        "share_token_budget": false,
+        "observation": {
+          "buffer_tokens": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
+        "reflection": {}
+      },
+      "expect_error": "InvalidObservationBufferTokensAbsolute"
+    },
+    {
+      "name": "reflection_buffer_activation_zero_is_rejected",
+      "input": {
+        "scope": "thread",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {
+          "buffer_activation": 0.0
+        }
+      },
+      "expect_error": "InvalidReflectionBufferActivation"
+    },
+    {
+      "name": "reflection_block_after_ratio_below_one_is_rejected",
+      "input": {
+        "scope": "thread",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {
+          "block_after": 0.9
+        }
+      },
+      "expect_error": "InvalidReflectionBlockAfter"
+    },
+    {
+      "name": "session_scope_defaults_match_thread_behavior",
+      "input": {
+        "scope": "session",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {}
+      },
+      "expect": {
+        "message_tokens_base": 30000,
+        "observation_tokens": 40000,
+        "total_budget": null,
+        "buffer_tokens": 6000,
+        "observation_buffer_activation": 0.8,
+        "observation_block_after": 36000,
+        "reflection_buffer_activation": 0.5,
+        "reflection_block_after": 48000,
+        "async_buffering_disabled": false
+      }
+    },
+    {
+      "name": "resource_scope_defaults_disable_async",
+      "input": {
+        "scope": "resource",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {}
+      },
+      "expect": {
+        "message_tokens_base": 30000,
+        "observation_tokens": 40000,
+        "total_budget": null,
+        "buffer_tokens": null,
+        "observation_buffer_activation": null,
+        "observation_block_after": null,
+        "reflection_buffer_activation": null,
+        "reflection_block_after": null,
+        "async_buffering_disabled": true
+      }
+    },
+    {
+      "name": "resource_scope_rejects_explicit_observation_block_after",
+      "input": {
+        "scope": "resource",
+        "share_token_budget": false,
+        "observation": {
+          "block_after": 1.2
+        },
+        "reflection": {}
+      },
+      "expect_error": "ResourceScopeAsyncBufferingUnsupported"
+    },
+    {
+      "name": "resource_scope_rejects_explicit_reflection_block_after",
+      "input": {
+        "scope": "resource",
+        "share_token_budget": false,
+        "observation": {},
+        "reflection": {
+          "block_after": 1.2
+        }
+      },
+      "expect_error": "ResourceScopeAsyncBufferingUnsupported"
     }
   ],
   "reflector_trigger_cases": [

@@ -75,3 +75,84 @@ fn build_scope_key_rejects_missing_identifier_for_each_scope() {
         OmTransformError::MissingScopeIdentifier("resource_id")
     );
 }
+
+#[test]
+fn canonical_thread_ref_resource_scope_prefers_source_thread_then_session() {
+    let resolved = resolve_canonical_thread_ref(
+        OmScope::Resource,
+        "resource:docs/om.md",
+        Some("thread-source"),
+        Some("session-source"),
+        Some("thread-current"),
+        Some("session-current"),
+        None,
+    );
+    assert_eq!(resolved.canonical_thread_id, "thread:thread-source");
+    assert_eq!(resolved.origin_thread_id.as_deref(), Some("thread-source"));
+    assert_eq!(
+        resolved.origin_session_id.as_deref(),
+        Some("session-source")
+    );
+    assert_eq!(resolved.resource_id.as_deref(), Some("docs/om.md"));
+}
+
+#[test]
+fn canonical_thread_ref_falls_back_to_session_and_scope_key_identifiers() {
+    let session_scope = resolve_canonical_thread_ref(
+        OmScope::Session,
+        "session:s-scope",
+        None,
+        None,
+        None,
+        Some("s-current"),
+        None,
+    );
+    assert_eq!(session_scope.canonical_thread_id, "session:s-current");
+
+    let thread_scope = resolve_canonical_thread_ref(
+        OmScope::Thread,
+        "thread:t-scope",
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert_eq!(thread_scope.canonical_thread_id, "thread:t-scope");
+
+    let resource_scope = resolve_canonical_thread_ref(
+        OmScope::Resource,
+        "resource:r-scope",
+        None,
+        None,
+        None,
+        None,
+        None,
+    );
+    assert_eq!(resource_scope.canonical_thread_id, "resource:r-scope");
+}
+
+#[test]
+fn canonical_thread_ref_is_deterministic_for_same_input() {
+    let first = resolve_canonical_thread_ref(
+        OmScope::Resource,
+        "  resource:r-main  ",
+        Some(" t-main "),
+        Some(" s-main "),
+        None,
+        None,
+        None,
+    );
+    let second = resolve_canonical_thread_ref(
+        OmScope::Resource,
+        "  resource:r-main  ",
+        Some(" t-main "),
+        Some(" s-main "),
+        None,
+        None,
+        None,
+    );
+    assert_eq!(first, second);
+    assert_eq!(first.scope_key, "resource:r-main");
+    assert_eq!(first.canonical_thread_id, "thread:t-main");
+}

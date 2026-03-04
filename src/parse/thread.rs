@@ -1,7 +1,8 @@
 use super::OmMultiThreadObserverSection;
 use super::OmParseMode;
 use super::sections::extract_and_remove_tag_sections_return_last;
-use super::tokens::{TagKind, is_attr_name_char, is_tag_name_char, parse_tag_tokens};
+use super::tokens::{TagKind, TagToken, is_attr_name_char, is_tag_name_char, parse_tag_tokens};
+use crate::xml::unescape_xml_attribute;
 
 fn parse_tag_attribute(open_tag: &str, key: &str) -> Option<String> {
     if !open_tag.starts_with('<') || !open_tag.ends_with('>') {
@@ -72,7 +73,7 @@ fn parse_tag_attribute(open_tag: &str, key: &str) -> Option<String> {
         };
 
         if name == key {
-            return Some(value.to_string());
+            return Some(unescape_xml_attribute(value));
         }
     }
 
@@ -122,8 +123,11 @@ struct OpenThread {
     open_end: usize,
 }
 
-pub(super) fn extract_thread_blocks(text: &str, mode: OmParseMode) -> Vec<(String, String)> {
-    let tokens = parse_tag_tokens(text);
+pub(super) fn extract_thread_blocks_with_tokens(
+    text: &str,
+    tokens: &[TagToken],
+    mode: OmParseMode,
+) -> Vec<(String, String)> {
     let mut blocks = Vec::<(String, String)>::new();
     let mut open: Option<OpenThread> = None;
     let mut discard_next_close = false;
@@ -181,4 +185,9 @@ pub(super) fn extract_thread_blocks(text: &str, mode: OmParseMode) -> Vec<(Strin
     }
 
     blocks
+}
+
+pub(super) fn extract_thread_blocks(text: &str, mode: OmParseMode) -> Vec<(String, String)> {
+    let tokens = parse_tag_tokens(text);
+    extract_thread_blocks_with_tokens(text, &tokens, mode)
 }

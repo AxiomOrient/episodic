@@ -1,0 +1,23 @@
+{
+  "header": {
+    "contract_name": "axiomme.om.prompt",
+    "contract_version": "9.9.9",
+    "protocol_version": "om-v2",
+    "request_kind": "observer_single",
+    "scope": "session",
+    "scope_key": "session:s-1"
+  },
+  "known_message_ids": ["m1"],
+  "has_other_conversation_context": false,
+  "skip_continuation_hints": false,
+  "limits": {
+    "max_output_tokens": 1200,
+    "observation_max_chars": 4096,
+    "reflection_max_chars": null
+  },
+  "output_contract": {
+    "format": "xml",
+    "required_sections": ["observations", "current-task", "suggested-response"],
+    "continuation_enabled": true
+  }
+}

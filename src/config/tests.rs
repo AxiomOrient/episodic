@@ -74,6 +74,34 @@ fn resource_scope_rejects_explicit_async_buffering() {
 }
 
 #[test]
+fn resource_scope_rejects_explicit_observation_block_after() {
+    let input = OmConfigInput {
+        scope: OmScope::Resource,
+        observation: ObservationConfigInput {
+            block_after: Some(1.2),
+            ..ObservationConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::ResourceScopeAsyncBufferingUnsupported);
+}
+
+#[test]
+fn resource_scope_rejects_explicit_reflection_block_after() {
+    let input = OmConfigInput {
+        scope: OmScope::Resource,
+        reflection: ReflectionConfigInput {
+            block_after: Some(1.1),
+            ..ReflectionConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::ResourceScopeAsyncBufferingUnsupported);
+}
+
+#[test]
 fn resource_scope_allows_explicit_buffer_disable() {
     let input = OmConfigInput {
         scope: OmScope::Resource,
@@ -109,6 +137,58 @@ fn invalid_buffer_activation_is_rejected() {
 }
 
 #[test]
+fn invalid_observation_message_tokens_is_rejected() {
+    let input = OmConfigInput {
+        observation: ObservationConfigInput {
+            message_tokens: Some(0),
+            ..ObservationConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::InvalidObservationMessageTokens);
+}
+
+#[test]
+fn invalid_reflection_observation_tokens_is_rejected() {
+    let input = OmConfigInput {
+        reflection: ReflectionConfigInput {
+            observation_tokens: Some(0),
+            ..ReflectionConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::InvalidReflectionObservationTokens);
+}
+
+#[test]
+fn invalid_reflection_activation_is_rejected() {
+    let input = OmConfigInput {
+        reflection: ReflectionConfigInput {
+            buffer_activation: Some(0.0),
+            ..ReflectionConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::InvalidReflectionBufferActivation);
+}
+
+#[test]
+fn invalid_reflection_block_after_is_rejected() {
+    let input = OmConfigInput {
+        reflection: ReflectionConfigInput {
+            block_after: Some(f32::INFINITY),
+            ..ReflectionConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::InvalidReflectionBlockAfter);
+}
+
+#[test]
 fn observation_buffer_tokens_must_be_below_threshold() {
     let input = OmConfigInput {
         observation: ObservationConfigInput {
@@ -123,6 +203,19 @@ fn observation_buffer_tokens_must_be_below_threshold() {
         err,
         OmConfigError::ObservationBufferTokensAtOrAboveThreshold
     );
+}
+
+#[test]
+fn observation_buffer_tokens_absolute_zero_is_rejected() {
+    let input = OmConfigInput {
+        observation: ObservationConfigInput {
+            buffer_tokens: Some(BufferTokensInput::Absolute(0)),
+            ..ObservationConfigInput::default()
+        },
+        ..OmConfigInput::default()
+    };
+    let err = resolve_om_config(input).expect_err("must reject");
+    assert_eq!(err, OmConfigError::InvalidObservationBufferTokensAbsolute);
 }
 
 #[test]

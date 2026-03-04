@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use chrono::{Duration, TimeZone, Utc};
 
 use crate::{
-    OmObservationChunk, OmOriginType, OmPendingMessage, OmRecord, OmScope,
-    ResolvedObservationConfig, ResolvedReflectionConfig,
+    OmDeterministicEvidenceKind, OmObservationChunk, OmOriginType, OmPendingMessage, OmRecord,
+    OmScope, ResolvedObservationConfig, ResolvedReflectionConfig,
 };
 
 use super::*;
@@ -27,6 +27,8 @@ fn chunk(seq: u32, msg_tokens: u32, obs_tokens: u32, ids: &[&str]) -> OmObservat
 }
 
 mod activation;
+mod continuation;
 mod observer;
 mod reflection;
 mod scope;
+mod snapshot;

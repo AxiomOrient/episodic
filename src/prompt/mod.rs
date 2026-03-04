@@ -1,4 +1,6 @@
+mod contract;
 mod formatter;
+mod parser;
 mod system;
 mod user;
 
@@ -26,8 +28,20 @@ pub struct OmObserverThreadMessages {
     pub message_history: String,
 }
 
+pub use contract::{
+    OM_PROMPT_CONTRACT_NAME, OM_PROMPT_CONTRACT_VERSION, OM_PROTOCOL_VERSION,
+    OmObserverPromptContractV2, OmPromptContractHeader, OmPromptLimitsV2, OmPromptOutputContractV2,
+    OmPromptRequestKind, OmReflectorPromptContractV2,
+    build_multi_thread_observer_prompt_contract_v2, build_observer_prompt_contract_v2,
+    build_reflector_prompt_contract_v2,
+};
+
 pub use formatter::{
     format_multi_thread_observer_messages_for_prompt, format_observer_messages_for_prompt,
+};
+pub use parser::{
+    OmPromptContractParseError, parse_observer_prompt_contract_v2,
+    parse_reflector_prompt_contract_v2,
 };
 pub use system::{
     build_multi_thread_observer_system_prompt, build_observer_system_prompt,

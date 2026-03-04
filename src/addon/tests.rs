@@ -60,11 +60,43 @@ impl OmReflectorAddon for EchoReflectorAddon {
         Ok(OmReflectorResponse {
             reflection: request.active_observations.clone(),
             reflection_token_count: 0,
-            reflected_observation_line_count: 0,
             current_task: None,
             suggested_response: None,
             usage: super::super::OmInferenceUsage::default(),
         })
+    }
+}
+
+struct FailingApplyAddon;
+
+impl OmApplyAddon for FailingApplyAddon {
+    type Error = &'static str;
+
+    fn apply(&mut self, _command: OmCommand) -> Result<(), Self::Error> {
+        Err("apply-failed")
+    }
+}
+
+struct FailingObserverAddon;
+
+impl OmObserverAddon for FailingObserverAddon {
+    type Error = &'static str;
+
+    fn observe(&mut self, _request: &OmObserverRequest) -> Result<OmObserverResponse, Self::Error> {
+        Err("observe-failed")
+    }
+}
+
+struct FailingReflectorAddon;
+
+impl OmReflectorAddon for FailingReflectorAddon {
+    type Error = &'static str;
+
+    fn reflect(
+        &mut self,
+        _request: &OmReflectorRequest,
+    ) -> Result<OmReflectorResponse, Self::Error> {
+        Err("reflect-failed")
     }
 }
 
@@ -97,6 +129,44 @@ fn reflection_command_builder_maps_reflection_action_to_command() {
     assert_eq!(
         reflection_command_from_action(ReflectionAction::None, "session:s1", 3, at),
         None
+    );
+}
+
+#[test]
+fn reflection_command_builder_rejects_empty_scope_key() {
+    let at = "2026-02-13T00:00:00Z";
+    assert_eq!(
+        reflection_command_from_action(ReflectionAction::Buffer, "   ", 1, at),
+        None
+    );
+}
+
+#[test]
+fn reflection_command_builder_rejects_invalid_timestamp() {
+    assert_eq!(
+        reflection_command_from_action(ReflectionAction::Reflect, "session:s1", 1, "not-a-rfc3339"),
+        None
+    );
+}
+
+#[test]
+fn reflection_command_builder_trims_scope_and_timestamp_inputs() {
+    let command = reflection_command_from_action(
+        ReflectionAction::Buffer,
+        "  session:s1  ",
+        2,
+        " 2026-02-13T00:00:00Z ",
+    )
+    .expect("command");
+
+    assert_eq!(
+        command,
+        OmCommand::EnqueueReflection(OmReflectionCommand {
+            command_type: OmReflectionCommandType::BufferRequested,
+            scope_key: "session:s1".to_string(),
+            expected_generation: 2,
+            requested_at_rfc3339: "2026-02-13T00:00:00Z".to_string(),
+        })
     );
 }
 
@@ -142,6 +212,9 @@ fn observe_async_delegates_to_sync_observe_by_default() {
     let result = poll_ready(future.as_mut()).expect("observe");
     assert_eq!(result.observations, "a");
     assert_eq!(result.observed_message_ids, vec!["m1".to_string()]);
+    assert_eq!(result.current_task, None);
+    assert_eq!(result.suggested_response, None);
+    assert_eq!(result.usage, super::super::OmInferenceUsage::default());
 }
 
 #[test]
@@ -162,4 +235,67 @@ fn reflect_async_delegates_to_sync_reflect_by_default() {
     let mut future = pin!(addon.reflect_async(&request));
     let result = poll_ready(future.as_mut()).expect("reflect");
     assert_eq!(result.reflection, "reflect-me");
+    assert_eq!(result.current_task, None);
+    assert_eq!(result.suggested_response, None);
+    assert_eq!(result.usage, super::super::OmInferenceUsage::default());
+}
+
+#[test]
+fn apply_async_propagates_sync_error_by_default() {
+    let mut addon = FailingApplyAddon;
+    let command = OmCommand::EnqueueReflection(OmReflectionCommand {
+        command_type: OmReflectionCommandType::BufferRequested,
+        scope_key: "session:s1".to_string(),
+        expected_generation: 1,
+        requested_at_rfc3339: "2026-02-13T00:00:00Z".to_string(),
+    });
+    let mut future = pin!(addon.apply_async(command));
+    let result = poll_ready(future.as_mut());
+    assert_eq!(result, Err("apply-failed"));
+}
+
+#[test]
+fn observe_async_propagates_sync_error_by_default() {
+    let mut addon = FailingObserverAddon;
+    let request = OmObserverRequest {
+        scope: super::super::OmScope::Session,
+        scope_key: "session:s1".to_string(),
+        model: super::super::OmInferenceModelConfig {
+            provider: "local-http".to_string(),
+            model: "test".to_string(),
+            max_output_tokens: 128,
+            temperature_milli: 0,
+        },
+        active_observations: "a".to_string(),
+        other_conversations: None,
+        pending_messages: vec![super::super::OmPendingMessage {
+            id: "m1".to_string(),
+            role: "user".to_string(),
+            text: "hello".to_string(),
+            created_at_rfc3339: None,
+        }],
+    };
+    let mut future = pin!(addon.observe_async(&request));
+    let result = poll_ready(future.as_mut());
+    assert_eq!(result, Err("observe-failed"));
+}
+
+#[test]
+fn reflect_async_propagates_sync_error_by_default() {
+    let mut addon = FailingReflectorAddon;
+    let request = OmReflectorRequest {
+        scope: super::super::OmScope::Session,
+        scope_key: "session:s1".to_string(),
+        model: super::super::OmInferenceModelConfig {
+            provider: "local-http".to_string(),
+            model: "test".to_string(),
+            max_output_tokens: 128,
+            temperature_milli: 0,
+        },
+        generation_count: 1,
+        active_observations: "reflect-me".to_string(),
+    };
+    let mut future = pin!(addon.reflect_async(&request));
+    let result = poll_ready(future.as_mut());
+    assert_eq!(result, Err("reflect-failed"));
 }

@@ -65,7 +65,9 @@ pub fn resolve_om_config(input: OmConfigInput) -> Result<ResolvedOmConfig, OmCon
 
     let user_explicitly_configured_async = input.observation.buffer_tokens.is_some()
         || input.observation.buffer_activation.is_some()
-        || input.reflection.buffer_activation.is_some();
+        || input.observation.block_after.is_some()
+        || input.reflection.buffer_activation.is_some()
+        || input.reflection.block_after.is_some();
     let async_buffering_disabled = matches!(
         input.observation.buffer_tokens,
         Some(BufferTokensInput::Disabled)

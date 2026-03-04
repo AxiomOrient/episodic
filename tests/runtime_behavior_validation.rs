@@ -39,7 +39,6 @@ fn sample_record(observation_token_count: u32, pending_message_tokens: u32) -> e
         buffered_reflection: None,
         buffered_reflection_tokens: None,
         buffered_reflection_input_tokens: None,
-        reflected_observation_line_count: None,
         created_at: now,
         updated_at: now,
     }

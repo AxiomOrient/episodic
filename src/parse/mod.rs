@@ -4,9 +4,11 @@ mod tokens;
 
 use crate::xml::{escape_xml_attribute, escape_xml_text};
 use sections::{extract_tag_content_from_tokens, section_ranges_for_tag};
-use thread::{extract_thread_blocks, parse_thread_observer_section};
-use tokens::TagSectionRange;
+use thread::{
+    extract_thread_blocks, extract_thread_blocks_with_tokens, parse_thread_observer_section,
+};
 use tokens::parse_tag_tokens;
+use tokens::{TagKind, TagSectionRange, TagToken};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OmParseMode {
@@ -133,8 +135,68 @@ fn decide_multi_thread_parse(
     }
 }
 
-fn parse_thread_sections(scope: &str, mode: OmParseMode) -> Vec<OmMultiThreadObserverSection> {
-    extract_thread_blocks(scope, mode)
+fn has_overlap_recovery_candidate(tokens: &[TagToken], tag: &str) -> bool {
+    let mut open_seen = false;
+    for token in tokens {
+        if token.name != tag {
+            continue;
+        }
+        match token.kind {
+            TagKind::Open if token.line_anchored => {
+                if open_seen {
+                    return true;
+                }
+                open_seen = true;
+            }
+            TagKind::Close => {
+                open_seen = false;
+            }
+            TagKind::Open => {}
+        }
+    }
+    false
+}
+
+fn should_attempt_lenient_memory_parse(
+    tokens: &[TagToken],
+    strict_quality: MemoryParseQuality,
+) -> bool {
+    // Hot path: strict already extracted full signal.
+    if strict_quality.observation_chars > 0 || strict_quality.metadata_fields == 2 {
+        return false;
+    }
+
+    // Lenient mode only adds value for malformed overlap recovery.
+    has_overlap_recovery_candidate(tokens, "observations")
+        || has_overlap_recovery_candidate(tokens, "current-task")
+        || has_overlap_recovery_candidate(tokens, "suggested-response")
+}
+
+fn should_attempt_lenient_multi_thread_parse(
+    tokens: &[TagToken],
+    strict_quality: MultiThreadParseQuality,
+) -> bool {
+    // Hot path: strict already retained at least one usable thread observation.
+    if strict_quality.sections_with_observations > 0 {
+        return false;
+    }
+
+    // Lenient mode only changes results when nested/overlapping tags exist.
+    has_overlap_recovery_candidate(tokens, "observations")
+        || has_overlap_recovery_candidate(tokens, "thread")
+}
+
+fn parse_thread_sections(
+    scope: &str,
+    mode: OmParseMode,
+    tokens: Option<&[TagToken]>,
+) -> Vec<OmMultiThreadObserverSection> {
+    let thread_blocks = match tokens {
+        Some(tokens) => extract_thread_blocks_with_tokens(scope, tokens, mode),
+        None => extract_thread_blocks(scope, mode),
+    };
+
+    thread_blocks
         .into_iter()
         .filter_map(|(thread_id, body)| {
             parse_thread_observer_section(&thread_id, &body, mode).and_then(|section| {
@@ -166,11 +228,13 @@ fn join_section_ranges(text: &str, ranges: &[TagSectionRange]) -> String {
     joined
 }
 
-pub fn parse_memory_section_xml(content: &str, mode: OmParseMode) -> OmMemorySection {
-    let tokens = parse_tag_tokens(content);
-
+fn parse_memory_section_xml_with_tokens(
+    content: &str,
+    tokens: &[TagToken],
+    mode: OmParseMode,
+) -> OmMemorySection {
     let observations = {
-        let ranges = section_ranges_for_tag(content, &tokens, "observations", mode);
+        let ranges = section_ranges_for_tag(content, tokens, "observations", mode);
         if ranges.is_empty() {
             extract_list_items_only(content)
         } else {
@@ -180,12 +244,12 @@ pub fn parse_memory_section_xml(content: &str, mode: OmParseMode) -> OmMemorySec
     .trim()
     .to_string();
 
-    let current_task = extract_tag_content_from_tokens(content, &tokens, "current-task", mode)
+    let current_task = extract_tag_content_from_tokens(content, tokens, "current-task", mode)
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
 
     let suggested_response =
-        extract_tag_content_from_tokens(content, &tokens, "suggested-response", mode)
+        extract_tag_content_from_tokens(content, tokens, "suggested-response", mode)
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty());
 
@@ -196,13 +260,19 @@ pub fn parse_memory_section_xml(content: &str, mode: OmParseMode) -> OmMemorySec
     }
 }
 
+pub fn parse_memory_section_xml(content: &str, mode: OmParseMode) -> OmMemorySection {
+    let tokens = parse_tag_tokens(content);
+    parse_memory_section_xml_with_tokens(content, &tokens, mode)
+}
+
 pub fn parse_memory_section_xml_accuracy_first(content: &str) -> OmMemorySection {
-    let strict = parse_memory_section_xml(content, OmParseMode::Strict);
+    let tokens = parse_tag_tokens(content);
+    let strict = parse_memory_section_xml_with_tokens(content, &tokens, OmParseMode::Strict);
     let strict_quality = memory_parse_quality(&strict);
-    if strict_quality.observation_chars > 0 {
+    if !should_attempt_lenient_memory_parse(&tokens, strict_quality) {
         strict
     } else {
-        let lenient = parse_memory_section_xml(content, OmParseMode::Lenient);
+        let lenient = parse_memory_section_xml_with_tokens(content, &tokens, OmParseMode::Lenient);
         let lenient_quality = memory_parse_quality(&lenient);
         match decide_memory_parse(strict_quality, lenient_quality) {
             OmParseMode::Strict => strict,
@@ -211,14 +281,14 @@ pub fn parse_memory_section_xml_accuracy_first(content: &str) -> OmMemorySection
     }
 }
 
-pub fn parse_multi_thread_observer_output(
+fn parse_multi_thread_observer_output_with_tokens(
     content: &str,
+    tokens: &[TagToken],
     mode: OmParseMode,
 ) -> Vec<OmMultiThreadObserverSection> {
-    let tokens = parse_tag_tokens(content);
-    let observation_ranges = section_ranges_for_tag(content, &tokens, "observations", mode);
+    let observation_ranges = section_ranges_for_tag(content, tokens, "observations", mode);
     if observation_ranges.is_empty() {
-        return parse_thread_sections(content, mode);
+        return parse_thread_sections(content, mode, Some(tokens));
     }
 
     let mut out = Vec::<OmMultiThreadObserverSection>::new();
@@ -230,20 +300,31 @@ pub fn parse_multi_thread_observer_output(
         if section.is_empty() {
             continue;
         }
-        out.extend(parse_thread_sections(section, mode));
+        out.extend(parse_thread_sections(section, mode, None));
     }
     out
+}
+
+pub fn parse_multi_thread_observer_output(
+    content: &str,
+    mode: OmParseMode,
+) -> Vec<OmMultiThreadObserverSection> {
+    let tokens = parse_tag_tokens(content);
+    parse_multi_thread_observer_output_with_tokens(content, &tokens, mode)
 }
 
 pub fn parse_multi_thread_observer_output_accuracy_first(
     content: &str,
 ) -> Vec<OmMultiThreadObserverSection> {
-    let strict = parse_multi_thread_observer_output(content, OmParseMode::Strict);
+    let tokens = parse_tag_tokens(content);
+    let strict =
+        parse_multi_thread_observer_output_with_tokens(content, &tokens, OmParseMode::Strict);
     let strict_quality = multi_thread_parse_quality(&strict);
-    if strict_quality.sections_with_observations > 0 {
+    if !should_attempt_lenient_multi_thread_parse(&tokens, strict_quality) {
         strict
     } else {
-        let lenient = parse_multi_thread_observer_output(content, OmParseMode::Lenient);
+        let lenient =
+            parse_multi_thread_observer_output_with_tokens(content, &tokens, OmParseMode::Lenient);
         let lenient_quality = multi_thread_parse_quality(&lenient);
         match decide_multi_thread_parse(strict_quality, lenient_quality) {
             OmParseMode::Strict => strict,

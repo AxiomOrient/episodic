@@ -1,0 +1,23 @@
+{
+  "header": {
+    "contract_name": "axiomme.om.prompt",
+    "contract_version": "2.0.0",
+    "protocol_version": "om-v2",
+    "request_kind": "reflector",
+    "scope": "resource",
+    "scope_key": "resource:docs/om.md"
+  },
+  "generation_count": 7,
+  "compression_level": 2,
+  "skip_continuation_hints": true,
+  "limits": {
+    "max_output_tokens": 1600,
+    "observation_max_chars": null,
+    "reflection_max_chars": 8192
+  },
+  "output_contract": {
+    "format": "xml",
+    "required_sections": ["observations"],
+    "continuation_enabled": false
+  }
+}

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::HashSet;
 
 const OBSERVATION_HINT_PREFIX: &str = "om:";
 
@@ -13,6 +13,24 @@ fn normalize_whitespace_line(line: &str) -> String {
     out
 }
 
+fn is_continuation_reservation(line: &str) -> bool {
+    let lower = line.to_ascii_lowercase();
+    lower.contains("<current-task>")
+        || lower.contains("<suggested-response>")
+        || lower.starts_with("current-task:")
+        || lower.starts_with("suggested-response:")
+        || lower.starts_with("next:")
+}
+
+fn is_high_priority(line: &str) -> bool {
+    let lower = line.to_ascii_lowercase();
+    line.contains('🔴')
+        || lower.starts_with("high:")
+        || lower.starts_with("[high]")
+        || lower.starts_with("priority:high")
+        || lower.contains(" priority:high")
+}
+
 pub fn build_bounded_observation_hint(
     active_observations: &str,
     max_lines: usize,
@@ -22,24 +40,60 @@ pub fn build_bounded_observation_hint(
         return None;
     }
 
-    let mut tail = VecDeque::<String>::new();
-    for line in active_observations.lines() {
-        let compact = normalize_whitespace_line(line);
-        if compact.is_empty() {
-            continue;
+    let all_lines = active_observations
+        .lines()
+        .map(normalize_whitespace_line)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if all_lines.is_empty() {
+        return None;
+    }
+
+    let mut selected_indices = Vec::<usize>::new();
+    let mut seen_lines = HashSet::<String>::new();
+
+    for idx in (0..all_lines.len()).rev() {
+        if selected_indices.len() >= max_lines {
+            break;
         }
-        tail.push_back(compact);
-        if tail.len() > max_lines {
-            let _ = tail.pop_front();
+        let line = &all_lines[idx];
+        if is_continuation_reservation(line) && seen_lines.insert(line.clone()) {
+            selected_indices.push(idx);
         }
     }
-    if tail.is_empty() {
+
+    for idx in (0..all_lines.len()).rev() {
+        if selected_indices.len() >= max_lines {
+            break;
+        }
+        let line = &all_lines[idx];
+        if is_high_priority(line) && seen_lines.insert(line.clone()) {
+            selected_indices.push(idx);
+        }
+    }
+
+    for idx in (0..all_lines.len()).rev() {
+        if selected_indices.len() >= max_lines {
+            break;
+        }
+        let line = &all_lines[idx];
+        if seen_lines.insert(line.clone()) {
+            selected_indices.push(idx);
+        }
+    }
+
+    selected_indices.sort_unstable();
+    let selected_lines = selected_indices
+        .into_iter()
+        .map(|idx| all_lines[idx].clone())
+        .collect::<Vec<_>>();
+    if selected_lines.is_empty() {
         return None;
     }
 
     let mut bounded = String::new();
     let mut remaining = max_chars;
-    for line in tail {
+    for line in selected_lines {
         if remaining == 0 {
             break;
         }

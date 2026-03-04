@@ -39,6 +39,321 @@ fn synthesize_observer_observations_uses_fallback_when_all_lines_deduped() {
 }
 
 #[test]
+fn deterministic_continuation_emits_task_and_response_for_user_request() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "Please investigate queue replay drift and fix it".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(
+        task.as_deref(),
+        Some("Please investigate queue replay drift and fix it")
+    );
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("Respond to user request"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_preserves_error_identifier_in_suggestion() {
+    let pending = vec![
+        OmPendingMessage {
+            id: "m1".to_string(),
+            role: "user".to_string(),
+            text: "fix indexing pipeline for release".to_string(),
+            created_at_rfc3339: None,
+        },
+        OmPendingMessage {
+            id: "m2".to_string(),
+            role: "tool".to_string(),
+            text: "ERROR E409 conflict while writing index_state".to_string(),
+            created_at_rfc3339: None,
+        },
+    ];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task.as_deref(), Some("fix indexing pipeline for release"));
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("E409") && value.contains("continue"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_extracts_identifier_from_cjk_error_without_whitespace() {
+    let pending = vec![
+        OmPendingMessage {
+            id: "m1".to_string(),
+            role: "user".to_string(),
+            text: "请修复索引漂移并继续".to_string(),
+            created_at_rfc3339: None,
+        },
+        OmPendingMessage {
+            id: "m2".to_string(),
+            role: "tool".to_string(),
+            text: "错误发生在worker:queue，操作失败".to_string(),
+            created_at_rfc3339: None,
+        },
+    ];
+
+    let (_, response) = infer_deterministic_continuation(&pending);
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("worker:queue")),
+        "response was: {:?}",
+        response
+    );
+}
+
+#[test]
+fn deterministic_continuation_returns_none_without_task_signal() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "assistant".to_string(),
+        text: "background sync complete".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task, None);
+    assert_eq!(response, None);
+}
+
+#[test]
+fn deterministic_continuation_recognizes_korean_task_signal() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "큐 리플레이 드리프트를 조사하고 수정해줘".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(
+        task.as_deref(),
+        Some("큐 리플레이 드리프트를 조사하고 수정해줘")
+    );
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("사용자 요청에 응답"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_recognizes_japanese_task_signal() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "設定ファイルを更新してください".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task.as_deref(), Some("設定ファイルを更新してください"));
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("ユーザー要求に対応"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_recognizes_chinese_task_signal() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "请修复索引漂移并更新配置".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task.as_deref(), Some("请修复索引漂移并更新配置"));
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("回应用户请求"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_uses_korean_error_template() {
+    let pending = vec![
+        OmPendingMessage {
+            id: "m1".to_string(),
+            role: "user".to_string(),
+            text: "인덱스 동기화 문제를 확인하고 고쳐줘".to_string(),
+            created_at_rfc3339: None,
+        },
+        OmPendingMessage {
+            id: "m2".to_string(),
+            role: "tool".to_string(),
+            text: "오류 E_TIMEOUT 발생".to_string(),
+            created_at_rfc3339: None,
+        },
+    ];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(
+        task.as_deref(),
+        Some("인덱스 동기화 문제를 확인하고 고쳐줘")
+    );
+    assert!(
+        response.as_deref().is_some_and(|value| {
+            value.contains("E_TIMEOUT") && value.contains("계속 진행")
+        })
+    );
+}
+
+#[test]
+fn deterministic_continuation_accepts_localized_user_role_label() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "사용자".to_string(),
+        text: "설정 파일 업데이트해줘".to_string(),
+        created_at_rfc3339: None,
+    }];
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task.as_deref(), Some("설정 파일 업데이트해줘"));
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("사용자 요청에 응답"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_ignores_non_task_korean_status_sentence() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "인덱스 동기화가 완료되었습니다".to_string(),
+        created_at_rfc3339: None,
+    }];
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task, None);
+    assert_eq!(response, None);
+}
+
+#[test]
+fn deterministic_continuation_ignores_non_task_japanese_status_sentence() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "同期が完了しました".to_string(),
+        created_at_rfc3339: None,
+    }];
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task, None);
+    assert_eq!(response, None);
+}
+
+#[test]
+fn deterministic_continuation_ignores_non_task_chinese_status_sentence() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "索引同步已完成".to_string(),
+        created_at_rfc3339: None,
+    }];
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task, None);
+    assert_eq!(response, None);
+}
+
+#[test]
+fn deterministic_continuation_handles_mixed_language_request() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "Please 큐 리플레이 드리프트를 조사하고 수정해줘".to_string(),
+        created_at_rfc3339: None,
+    }];
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(
+        task.as_deref(),
+        Some("Please 큐 리플레이 드리프트를 조사하고 수정해줘")
+    );
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("사용자 요청에 응답"))
+    );
+}
+
+#[test]
+fn deterministic_observer_response_v2_emits_evidence_and_preserves_error_identifier() {
+    let pending = vec![
+        OmPendingMessage {
+            id: "m1".to_string(),
+            role: "user".to_string(),
+            text: "fix indexing pipeline for release".to_string(),
+            created_at_rfc3339: None,
+        },
+        OmPendingMessage {
+            id: "m2".to_string(),
+            role: "tool".to_string(),
+            text: "ERROR E409 conflict while writing index_state".to_string(),
+            created_at_rfc3339: None,
+        },
+    ];
+
+    let response = infer_deterministic_observer_response("", &pending, 256);
+    assert_eq!(
+        response.current_task.as_deref(),
+        Some("fix indexing pipeline for release")
+    );
+    assert!(
+        response
+            .suggested_response
+            .as_deref()
+            .is_some_and(|value| value.contains("E409"))
+    );
+    assert!(response.confidence_milli >= 700);
+    assert_eq!(response.observed_message_ids, vec!["m1", "m2"]);
+    assert!(response.evidence.iter().any(|item| {
+        item.kind == OmDeterministicEvidenceKind::TaskSignal && item.message_id == "m1"
+    }));
+    assert!(response.evidence.iter().any(|item| {
+        item.kind == OmDeterministicEvidenceKind::ErrorSignal && item.message_id == "m2"
+    }));
+    assert!(response.evidence.iter().any(|item| {
+        item.kind == OmDeterministicEvidenceKind::ObservationLine && item.message_id == "m2"
+    }));
+}
+
+#[test]
+fn deterministic_observer_response_v2_suppresses_suggested_response_for_low_confidence_task() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "Can you check this?".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let response = infer_deterministic_observer_response("", &pending, 256);
+    assert_eq!(
+        response.current_task.as_deref(),
+        Some("Can you check this?")
+    );
+    assert_eq!(response.suggested_response, None);
+    assert!(
+        response.confidence_milli
+            < crate::ContinuationPolicyV2::default().min_confidence_milli_for_suggested_response
+    );
+    assert!(response.evidence.iter().any(|item| {
+        item.kind == OmDeterministicEvidenceKind::TaskSignal && item.message_id == "m1"
+    }));
+}
+
+#[test]
 fn select_observer_message_candidates_filters_and_keeps_recent_order() {
     let now = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
     let candidates = vec![
@@ -126,7 +441,7 @@ fn select_observer_message_candidates_returns_empty_when_max_messages_zero() {
 }
 
 #[test]
-fn filter_observer_candidates_by_last_observed_at_keeps_only_newer_messages() {
+fn filter_observer_candidates_by_last_observed_at_keeps_messages_at_or_after_cutoff() {
     let base = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
     let candidates = vec![
         OmObserverMessageCandidate {
@@ -147,8 +462,9 @@ fn filter_observer_candidates_by_last_observed_at_keeps_only_newer_messages() {
         },
     ];
     let out = filter_observer_candidates_by_last_observed_at(&candidates, Some(base));
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0].id, "m2");
+    assert_eq!(out.len(), 2);
+    assert_eq!(out[0].id, "m1");
+    assert_eq!(out[1].id, "m2");
 }
 
 #[test]
@@ -453,7 +769,6 @@ fn observer_write_decision_matches_async_and_sync_paths() {
         buffered_reflection: None,
         buffered_reflection_tokens: None,
         buffered_reflection_input_tokens: None,
-        reflected_observation_line_count: None,
         created_at: now,
         updated_at: now,
     };

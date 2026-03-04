@@ -86,7 +86,6 @@ pub struct OmRecord {
     pub buffered_reflection: Option<String>,
     pub buffered_reflection_tokens: Option<u32>,
     pub buffered_reflection_input_tokens: Option<u32>,
-    pub reflected_observation_line_count: Option<u32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -103,6 +102,197 @@ pub struct OmObservationChunk {
     pub message_ids: Vec<String>,
     pub last_observed_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmThreadRefV2 {
+    pub canonical_thread_id: String,
+    pub scope: OmScope,
+    pub scope_key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_thread_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OmContinuationSourceKind {
+    ObserverLlm,
+    ObserverDeterministic,
+    Reflector,
+    ExplicitUserTask,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmContinuationStateV2 {
+    pub scope_key: String,
+    pub thread_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_task: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+    pub confidence_milli: u16,
+    pub source_kind: OmContinuationSourceKind,
+    #[serde(default)]
+    pub source_message_ids: Vec<String>,
+    pub updated_at_rfc3339: String,
+    pub staleness_budget_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmContinuationCandidateV2 {
+    pub scope_key: String,
+    pub thread_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_task: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+    pub confidence_milli: u16,
+    pub source_kind: OmContinuationSourceKind,
+    #[serde(default)]
+    pub source_message_ids: Vec<String>,
+    pub updated_at_rfc3339: String,
+    pub staleness_budget_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContinuationPolicyV2 {
+    pub min_confidence_milli_for_task: u16,
+    pub min_confidence_milli_for_suggested_response: u16,
+    pub preserve_existing_task_on_weaker_update: bool,
+    pub only_improve_suggested_response: bool,
+}
+
+impl Default for ContinuationPolicyV2 {
+    fn default() -> Self {
+        Self {
+            min_confidence_milli_for_task: 500,
+            min_confidence_milli_for_suggested_response: 700,
+            preserve_existing_task_on_weaker_update: true,
+            only_improve_suggested_response: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OmObservationPriority {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OmObservationOriginKind {
+    Observation,
+    Chunk,
+    Summary,
+    Reflection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmObservationEntryV2 {
+    pub entry_id: String,
+    pub scope_key: String,
+    pub thread_id: String,
+    pub priority: OmObservationPriority,
+    pub text: String,
+    #[serde(default)]
+    pub source_message_ids: Vec<String>,
+    pub origin_kind: OmObservationOriginKind,
+    pub created_at_rfc3339: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub superseded_by: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmReflectionResponseV2 {
+    #[serde(default)]
+    pub covers_entry_ids: Vec<String>,
+    pub reflection_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_task: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OmDeterministicEvidenceKind {
+    TaskSignal,
+    ErrorSignal,
+    ObservationLine,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmDeterministicEvidence {
+    pub message_id: String,
+    pub role: String,
+    pub kind: OmDeterministicEvidenceKind,
+    pub excerpt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmDeterministicObserverResponseV2 {
+    pub observations: String,
+    pub observation_token_count: u32,
+    #[serde(default)]
+    pub observed_message_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_task: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+    pub confidence_milli: u16,
+    #[serde(default)]
+    pub evidence: Vec<OmDeterministicEvidence>,
+}
+
+pub const OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION: &str = "om-search-visible-snapshot-v2";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmSearchVisibleSnapshotV2 {
+    pub scope_key: String,
+    #[serde(default)]
+    pub activated_entry_ids: Vec<String>,
+    #[serde(default)]
+    pub buffered_entry_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_task: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rendered_hint: Option<String>,
+    pub materialized_at_rfc3339: String,
+    pub snapshot_version: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub visible_entries: Vec<OmObservationEntryV2>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OmHintPolicyV2 {
+    pub max_lines: usize,
+    pub max_chars: usize,
+    pub reserve_current_task_line: bool,
+    pub reserve_suggested_response_line: bool,
+    pub high_priority_slots: usize,
+    pub include_buffered_entries: bool,
+}
+
+impl Default for OmHintPolicyV2 {
+    fn default() -> Self {
+        Self {
+            max_lines: 4,
+            max_chars: 240,
+            reserve_current_task_line: true,
+            reserve_suggested_response_line: true,
+            high_priority_slots: 1,
+            include_buffered_entries: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -211,13 +401,6 @@ pub fn validate_om_record_invariants(record: &OmRecord) -> Vec<OmRecordInvariant
             violations.push(
                 OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
                     field: "buffered_reflection_input_tokens",
-                },
-            );
-        }
-        if record.reflected_observation_line_count.is_some() {
-            violations.push(
-                OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
-                    field: "reflected_observation_line_count",
                 },
             );
         }

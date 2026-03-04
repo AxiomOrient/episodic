@@ -163,6 +163,30 @@ fn parse_multi_thread_observer_output_reads_thread_sections() {
 }
 
 #[test]
+fn parse_multi_thread_observer_output_decodes_escaped_thread_id_for_primary_selection() {
+    let text = concat!(
+        "<observations>\n",
+        "<thread id=\"thread&amp;1\">\n",
+        "* 🔴 one\n",
+        "<current-task>task-1</current-task>\n",
+        "</thread>\n",
+        "</observations>\n",
+    );
+    let parsed = parse_multi_thread_observer_output(text, OmParseMode::Lenient);
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0].thread_id, "thread&1");
+
+    let aggregate = aggregate_multi_thread_observer_sections(&parsed, Some("thread&1"));
+    assert_eq!(aggregate.current_task.as_deref(), Some("task-1"));
+    assert!(
+        aggregate
+            .observations
+            .contains("<thread id=\"thread&amp;1\">")
+    );
+    assert!(!aggregate.observations.contains("&amp;amp;"));
+}
+
+#[test]
 fn parse_multi_thread_observer_output_ignores_invalid_thread_id() {
     let text = concat!(
         "<observations>\n",

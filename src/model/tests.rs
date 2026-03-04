@@ -2,7 +2,12 @@ use chrono::{TimeZone, Utc};
 use serde_json::{Value, json};
 
 use super::{
-    OmOriginType, OmRecord, OmRecordInvariantViolation, OmScope, validate_om_record_invariants,
+    ContinuationPolicyV2, OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION, OmContinuationSourceKind,
+    OmContinuationStateV2, OmDeterministicEvidence, OmDeterministicEvidenceKind,
+    OmDeterministicObserverResponseV2, OmHintPolicyV2, OmObservationEntryV2,
+    OmObservationOriginKind, OmObservationPriority, OmOriginType, OmRecord,
+    OmRecordInvariantViolation, OmReflectionResponseV2, OmScope, OmSearchVisibleSnapshotV2,
+    OmThreadRefV2, validate_om_record_invariants,
 };
 
 fn sample_record() -> OmRecord {
@@ -35,7 +40,6 @@ fn sample_record() -> OmRecord {
         buffered_reflection: Some("buffer".to_string()),
         buffered_reflection_tokens: Some(11),
         buffered_reflection_input_tokens: Some(12),
-        reflected_observation_line_count: Some(4),
         created_at: now,
         updated_at: now,
     }
@@ -172,6 +176,43 @@ fn om_record_invariants_report_scope_key_identifier_mismatch() {
 }
 
 #[test]
+fn om_record_invariants_report_resource_scope_contract_mismatch() {
+    let mut record = sample_record();
+    record.scope = OmScope::Resource;
+    record.resource_id = None;
+    record.scope_key = "thread:t-1".to_string();
+
+    let violations = validate_om_record_invariants(&record);
+    assert!(
+        violations.contains(&OmRecordInvariantViolation::MissingScopeIdentifier {
+            field: "resource_id",
+        })
+    );
+    assert!(
+        violations.contains(&OmRecordInvariantViolation::ScopeKeyPrefixMismatch {
+            expected_prefix: "resource:",
+        })
+    );
+}
+
+#[test]
+fn om_record_invariants_report_resource_scope_key_identifier_mismatch() {
+    let mut record = sample_record();
+    record.scope = OmScope::Resource;
+    record.resource_id = Some("r-expected".to_string());
+    record.scope_key = "resource:r-actual".to_string();
+
+    let violations = validate_om_record_invariants(&record);
+    assert!(violations.iter().any(|item| matches!(
+        item,
+        OmRecordInvariantViolation::ScopeKeyIdentifierMismatch {
+            expected_identifier,
+            actual_identifier,
+        } if expected_identifier == "r-expected" && actual_identifier == "r-actual"
+    )));
+}
+
+#[test]
 fn om_record_invariants_report_empty_identifiers_and_orphan_reflection_metadata() {
     let mut record = sample_record();
     record.scope = OmScope::Thread;
@@ -180,7 +221,6 @@ fn om_record_invariants_report_empty_identifiers_and_orphan_reflection_metadata(
     record.buffered_reflection = None;
     record.buffered_reflection_tokens = Some(11);
     record.buffered_reflection_input_tokens = Some(12);
-    record.reflected_observation_line_count = Some(7);
 
     let violations = validate_om_record_invariants(&record);
     assert!(
@@ -200,11 +240,6 @@ fn om_record_invariants_report_empty_identifiers_and_orphan_reflection_metadata(
             field: "buffered_reflection_input_tokens",
         }
     ));
-    assert!(violations.contains(
-        &OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
-            field: "reflected_observation_line_count",
-        }
-    ));
 }
 
 #[test]
@@ -213,7 +248,6 @@ fn om_record_invariants_report_empty_scope_key_and_empty_buffered_reflection() {
     record.scope_key = " ".to_string();
     record.buffered_reflection = Some(" \n\t ".to_string());
     record.buffered_reflection_tokens = Some(11);
-    record.reflected_observation_line_count = Some(2);
 
     let violations = validate_om_record_invariants(&record);
     assert!(violations.contains(&OmRecordInvariantViolation::EmptyScopeKey));
@@ -223,9 +257,180 @@ fn om_record_invariants_report_empty_scope_key_and_empty_buffered_reflection() {
             field: "buffered_reflection_tokens",
         }
     ));
-    assert!(violations.contains(
-        &OmRecordInvariantViolation::BufferedReflectionMetadataWithoutText {
-            field: "reflected_observation_line_count",
-        }
-    ));
+}
+
+#[test]
+fn om_record_invariants_report_empty_resource_identifier() {
+    let mut record = sample_record();
+    record.scope = OmScope::Resource;
+    record.resource_id = Some("   ".to_string());
+    record.scope_key = "resource:r-1".to_string();
+
+    let violations = validate_om_record_invariants(&record);
+    assert!(
+        violations.contains(&OmRecordInvariantViolation::EmptyIdentifier {
+            field: "resource_id",
+        })
+    );
+    assert!(
+        violations.contains(&OmRecordInvariantViolation::MissingScopeIdentifier {
+            field: "resource_id",
+        })
+    );
+}
+
+#[test]
+fn om_thread_ref_v2_roundtrip_and_optional_field_omission_is_stable() {
+    let value = OmThreadRefV2 {
+        canonical_thread_id: "thread:t-main".to_string(),
+        scope: OmScope::Resource,
+        scope_key: "resource:docs/om.md".to_string(),
+        origin_thread_id: Some("t-main".to_string()),
+        origin_session_id: None,
+        resource_id: Some("docs/om.md".to_string()),
+    };
+    let encoded = serde_json::to_value(&value).expect("serialize thread ref");
+    assert_eq!(encoded["canonical_thread_id"], json!("thread:t-main"));
+    assert_eq!(encoded.get("origin_session_id"), None);
+
+    let decoded = serde_json::from_value::<OmThreadRefV2>(encoded).expect("deserialize thread ref");
+    assert_eq!(decoded, value);
+}
+
+#[test]
+fn continuation_policy_v2_default_thresholds_are_stable() {
+    let policy = ContinuationPolicyV2::default();
+    assert_eq!(policy.min_confidence_milli_for_task, 500);
+    assert_eq!(policy.min_confidence_milli_for_suggested_response, 700);
+    assert!(policy.preserve_existing_task_on_weaker_update);
+    assert!(policy.only_improve_suggested_response);
+}
+
+#[test]
+fn continuation_state_v2_roundtrip_and_optional_field_omission_is_stable() {
+    let value = OmContinuationStateV2 {
+        scope_key: "thread:t-1".to_string(),
+        thread_id: "t-1".to_string(),
+        current_task: Some("ship release".to_string()),
+        suggested_response: None,
+        confidence_milli: 820,
+        source_kind: OmContinuationSourceKind::ObserverDeterministic,
+        source_message_ids: vec!["m-1".to_string(), "m-2".to_string()],
+        updated_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+        staleness_budget_ms: 120_000,
+    };
+
+    let encoded = serde_json::to_value(&value).expect("serialize continuation state");
+    assert_eq!(encoded.get("suggested_response"), None);
+
+    let decoded = serde_json::from_value::<OmContinuationStateV2>(encoded)
+        .expect("deserialize continuation state");
+    assert_eq!(decoded, value);
+}
+
+#[test]
+fn observation_entry_and_reflection_response_v2_roundtrip_is_stable() {
+    let entry = OmObservationEntryV2 {
+        entry_id: "entry-1".to_string(),
+        scope_key: "thread:t-1".to_string(),
+        thread_id: "t-1".to_string(),
+        priority: OmObservationPriority::High,
+        text: "priority:high check queue drift".to_string(),
+        source_message_ids: vec!["m-1".to_string()],
+        origin_kind: OmObservationOriginKind::Observation,
+        created_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+        superseded_by: None,
+    };
+    let entry_encoded = serde_json::to_value(&entry).expect("serialize observation entry");
+    assert_eq!(entry_encoded.get("superseded_by"), None);
+    let entry_decoded =
+        serde_json::from_value::<OmObservationEntryV2>(entry_encoded).expect("deserialize entry");
+    assert_eq!(entry_decoded, entry);
+
+    let reflection = OmReflectionResponseV2 {
+        covers_entry_ids: vec!["entry-1".to_string(), "entry-2".to_string()],
+        reflection_text: "compressed summary".to_string(),
+        current_task: Some("ship release".to_string()),
+        suggested_response: Some("respond with release status".to_string()),
+    };
+    let reflection_encoded = serde_json::to_value(&reflection).expect("serialize reflection");
+    assert_eq!(
+        reflection_encoded["covers_entry_ids"],
+        json!(["entry-1", "entry-2"])
+    );
+    let reflection_decoded = serde_json::from_value::<OmReflectionResponseV2>(reflection_encoded)
+        .expect("deserialize reflection");
+    assert_eq!(reflection_decoded, reflection);
+}
+
+#[test]
+fn deterministic_observer_response_v2_roundtrip_and_evidence_contract_are_stable() {
+    let value = OmDeterministicObserverResponseV2 {
+        observations: "[user] fix index drift".to_string(),
+        observation_token_count: 6,
+        observed_message_ids: vec!["m-1".to_string()],
+        current_task: Some("fix index drift".to_string()),
+        suggested_response: None,
+        confidence_milli: 640,
+        evidence: vec![OmDeterministicEvidence {
+            message_id: "m-1".to_string(),
+            role: "user".to_string(),
+            kind: OmDeterministicEvidenceKind::TaskSignal,
+            excerpt: "fix index drift".to_string(),
+        }],
+    };
+
+    let encoded = serde_json::to_value(&value).expect("serialize deterministic response");
+    assert_eq!(encoded.get("suggested_response"), None);
+    assert_eq!(encoded["evidence"][0]["kind"], json!("task_signal"));
+
+    let decoded = serde_json::from_value::<OmDeterministicObserverResponseV2>(encoded)
+        .expect("deserialize deterministic response");
+    assert_eq!(decoded, value);
+}
+
+#[test]
+fn hint_policy_v2_default_contract_is_stable() {
+    let policy = OmHintPolicyV2::default();
+    assert_eq!(policy.max_lines, 4);
+    assert_eq!(policy.max_chars, 240);
+    assert!(policy.reserve_current_task_line);
+    assert!(policy.reserve_suggested_response_line);
+    assert_eq!(policy.high_priority_slots, 1);
+    assert!(policy.include_buffered_entries);
+}
+
+#[test]
+fn search_visible_snapshot_v2_roundtrip_and_optional_field_omission_is_stable() {
+    let value = OmSearchVisibleSnapshotV2 {
+        scope_key: "thread:t-1".to_string(),
+        activated_entry_ids: vec!["a-1".to_string()],
+        buffered_entry_ids: vec!["b-1".to_string()],
+        current_task: Some("ship release".to_string()),
+        suggested_response: None,
+        rendered_hint: Some("om: current-task: ship release".to_string()),
+        materialized_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+        snapshot_version: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION.to_string(),
+        visible_entries: vec![OmObservationEntryV2 {
+            entry_id: "a-1".to_string(),
+            scope_key: "thread:t-1".to_string(),
+            thread_id: "t-1".to_string(),
+            priority: OmObservationPriority::High,
+            text: "priority:high release blockers".to_string(),
+            source_message_ids: vec!["m-1".to_string()],
+            origin_kind: OmObservationOriginKind::Observation,
+            created_at_rfc3339: "2026-03-04T00:00:00Z".to_string(),
+            superseded_by: None,
+        }],
+    };
+
+    let encoded = serde_json::to_value(&value).expect("serialize snapshot");
+    assert_eq!(encoded.get("suggested_response"), None);
+    assert_eq!(
+        encoded["snapshot_version"],
+        json!(OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION)
+    );
+    let decoded =
+        serde_json::from_value::<OmSearchVisibleSnapshotV2>(encoded).expect("deserialize snapshot");
+    assert_eq!(decoded, value);
 }

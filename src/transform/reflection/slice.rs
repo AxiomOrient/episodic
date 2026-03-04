@@ -21,7 +21,6 @@ pub fn plan_buffered_reflection_slice(
         total_lines
     };
     let sliced_observations = all_lines[..lines_to_reflect].join("\n");
-    let reflected_observation_line_count = lines_to_reflect.min(u32::MAX as usize) as u32;
     let slice_token_estimate = (avg_tokens_per_line * lines_to_reflect as f64)
         .round()
         .clamp(0.0, f64::from(u32::MAX)) as u32;
@@ -32,7 +31,6 @@ pub fn plan_buffered_reflection_slice(
 
     BufferedReflectionSlicePlan {
         sliced_observations,
-        reflected_observation_line_count,
         slice_token_estimate,
         compression_target_tokens,
     }

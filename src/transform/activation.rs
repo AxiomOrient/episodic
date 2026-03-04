@@ -159,6 +159,11 @@ pub fn activate_buffered_observations(
     if !record.is_buffering_observation {
         record.last_buffered_at_tokens = 0;
         record.last_buffered_at_time = None;
+    } else {
+        record.last_buffered_at_tokens = normalize_observation_buffer_boundary(
+            record.pending_message_tokens,
+            record.last_buffered_at_tokens,
+        );
     }
 
     Some(ActivationResult {

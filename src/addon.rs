@@ -72,6 +72,15 @@ pub fn reflection_command_from_action(
     expected_generation: u32,
     requested_at_rfc3339: &str,
 ) -> Option<OmCommand> {
+    let normalized_scope_key = scope_key.trim();
+    if normalized_scope_key.is_empty() {
+        return None;
+    }
+    let normalized_requested_at = requested_at_rfc3339.trim();
+    if chrono::DateTime::parse_from_rfc3339(normalized_requested_at).is_err() {
+        return None;
+    }
+
     let command_type = match action {
         ReflectionAction::None => return None,
         ReflectionAction::Buffer => OmReflectionCommandType::BufferRequested,
@@ -79,9 +88,9 @@ pub fn reflection_command_from_action(
     };
     Some(OmCommand::EnqueueReflection(OmReflectionCommand {
         command_type,
-        scope_key: scope_key.to_string(),
+        scope_key: normalized_scope_key.to_string(),
         expected_generation,
-        requested_at_rfc3339: requested_at_rfc3339.to_string(),
+        requested_at_rfc3339: normalized_requested_at.to_string(),
     }))
 }
 

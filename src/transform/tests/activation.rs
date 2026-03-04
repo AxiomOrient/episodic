@@ -93,7 +93,6 @@ fn activate_buffered_observations_updates_record_and_chunk_state() {
         buffered_reflection: None,
         buffered_reflection_tokens: None,
         buffered_reflection_input_tokens: None,
-        reflected_observation_line_count: None,
         created_at: now,
         updated_at: now,
     };
@@ -172,7 +171,6 @@ fn activate_buffered_observations_returns_result_for_seq_zero_chunks() {
         buffered_reflection: None,
         buffered_reflection_tokens: None,
         buffered_reflection_input_tokens: None,
-        reflected_observation_line_count: None,
         created_at: now,
         updated_at: now,
     };
@@ -197,4 +195,53 @@ fn activate_buffered_observations_returns_result_for_seq_zero_chunks() {
     assert_eq!(record.observation_token_count, 50);
     assert_eq!(record.pending_message_tokens, 0);
     assert!(chunks.is_empty());
+}
+
+#[test]
+fn activate_buffered_observations_normalizes_boundary_when_buffer_remains() {
+    let now = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+    let mut record = OmRecord {
+        id: "r-boundary".to_string(),
+        scope: OmScope::Session,
+        scope_key: "session:s1".to_string(),
+        session_id: Some("s1".to_string()),
+        thread_id: None,
+        resource_id: None,
+        generation_count: 0,
+        last_applied_outbox_event_id: None,
+        origin_type: OmOriginType::Initial,
+        active_observations: String::new(),
+        observation_token_count: 0,
+        pending_message_tokens: 7_000,
+        last_observed_at: None,
+        current_task: None,
+        suggested_response: None,
+        last_activated_message_ids: Vec::new(),
+        observer_trigger_count_total: 0,
+        reflector_trigger_count_total: 0,
+        is_observing: false,
+        is_reflecting: false,
+        is_buffering_observation: true,
+        is_buffering_reflection: false,
+        last_buffered_at_tokens: 7_000,
+        last_buffered_at_time: Some(now),
+        buffered_reflection: None,
+        buffered_reflection_tokens: None,
+        buffered_reflection_input_tokens: None,
+        created_at: now,
+        updated_at: now,
+    };
+    let mut chunks = vec![
+        chunk(1, 2_000, 100, &["m1"]),
+        chunk(2, 2_000, 100, &["m2"]),
+        chunk(3, 2_000, 100, &["m3"]),
+    ];
+
+    let activated =
+        activate_buffered_observations(&mut record, &mut chunks, 0.2, 5_000).expect("activate");
+    assert_eq!(activated.chunks_activated, 1);
+    assert!(record.is_buffering_observation);
+    assert_eq!(record.pending_message_tokens, 5_000);
+    assert_eq!(record.last_buffered_at_tokens, 5_000);
+    assert_eq!(chunks.len(), 2);
 }
