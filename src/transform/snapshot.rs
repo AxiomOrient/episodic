@@ -55,24 +55,27 @@ pub fn render_search_hint(
 
     let mut selected = Vec::<String>::new();
     let mut seen = HashSet::<String>::new();
-    let push_line = |line: String, selected: &mut Vec<String>, seen: &mut HashSet<String>| {
-        if selected.len() >= policy.max_lines {
-            return;
-        }
-        if seen.insert(line.clone()) {
-            selected.push(line);
-        }
-    };
+    let push_line =
+        |line: String, selected: &mut Vec<String>, seen: &mut HashSet<String>| -> bool {
+            if selected.len() >= policy.max_lines {
+                return false;
+            }
+            if seen.insert(line.clone()) {
+                selected.push(line);
+                return true;
+            }
+            false
+        };
 
     if policy.reserve_current_task_line
         && let Some(task) = normalize_optional(snapshot.current_task.as_deref())
     {
-        push_line(format!("current-task: {task}"), &mut selected, &mut seen);
+        let _ = push_line(format!("current-task: {task}"), &mut selected, &mut seen);
     }
     if policy.reserve_suggested_response_line
         && let Some(suggested) = normalize_optional(snapshot.suggested_response.as_deref())
     {
-        push_line(
+        let _ = push_line(
             format!("suggested-response: {suggested}"),
             &mut selected,
             &mut seen,
@@ -105,8 +108,9 @@ pub fn render_search_hint(
         if selected.len() >= policy.max_lines || added_high >= policy.high_priority_slots {
             break;
         }
-        if let Some(text) = normalize_text(&entry.text) {
-            push_line(text, &mut selected, &mut seen);
+        if let Some(text) = normalize_text(&entry.text)
+            && push_line(text, &mut selected, &mut seen)
+        {
             added_high += 1;
         }
     }
@@ -119,7 +123,7 @@ pub fn render_search_hint(
             continue;
         }
         if let Some(text) = normalize_text(&entry.text) {
-            push_line(text, &mut selected, &mut seen);
+            let _ = push_line(text, &mut selected, &mut seen);
         }
     }
 

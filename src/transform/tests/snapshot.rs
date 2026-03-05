@@ -178,6 +178,53 @@ fn render_search_hint_uses_deterministic_tie_break_for_same_timestamp() {
 }
 
 #[test]
+fn render_search_hint_fills_high_priority_slots_after_duplicate_high_entries() {
+    let snapshot = OmSearchVisibleSnapshotV2 {
+        scope_key: "thread:t-1".to_string(),
+        activated_entry_ids: vec!["a-1".to_string(), "a-2".to_string(), "a-3".to_string()],
+        buffered_entry_ids: Vec::new(),
+        current_task: None,
+        suggested_response: None,
+        rendered_hint: None,
+        materialized_at_rfc3339: "2026-03-04T00:00:10Z".to_string(),
+        snapshot_version: OM_SEARCH_VISIBLE_SNAPSHOT_V2_VERSION.to_string(),
+        visible_entries: vec![
+            entry(
+                "a-3",
+                OmObservationPriority::High,
+                "priority:high duplicate",
+                "2026-03-04T00:00:03Z",
+            ),
+            entry(
+                "a-2",
+                OmObservationPriority::High,
+                "priority:high duplicate",
+                "2026-03-04T00:00:02Z",
+            ),
+            entry(
+                "a-1",
+                OmObservationPriority::High,
+                "priority:high unique",
+                "2026-03-04T00:00:01Z",
+            ),
+        ],
+    };
+
+    let policy = OmHintPolicyV2 {
+        max_lines: 2,
+        max_chars: 240,
+        reserve_current_task_line: false,
+        reserve_suggested_response_line: false,
+        high_priority_slots: 2,
+        include_buffered_entries: true,
+    };
+
+    let hint = render_search_hint(&snapshot, policy).expect("hint");
+    assert!(hint.contains("priority:high duplicate"));
+    assert!(hint.contains("priority:high unique"));
+}
+
+#[test]
 fn materialize_search_visible_snapshot_excludes_buffered_entries_when_policy_disables_them() {
     let activated = vec![entry(
         "a-1",

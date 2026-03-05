@@ -1,5 +1,19 @@
 # Release Notes
 
+## 0.2.2 (2026-03-05)
+
+### Highlights
+- Search hint high-priority slot accounting corrected in `render_search_hint(...)`:
+  - high-priority slot counters now increase only when a line is actually inserted.
+  - duplicate high-priority lines no longer consume reserved high slots.
+- Added regression coverage for duplicate high-priority observations:
+  - `render_search_hint_fills_high_priority_slots_after_duplicate_high_entries`
+
+### Compatibility Impact
+- Crate version bumped from `0.2.1` to `0.2.2`.
+- Protocol version remains `om-v2`; prompt contract remains `2.0.0`.
+- No public protocol field removals/renames in this patch release.
+
 ## 0.2.1 (2026-03-05)
 
 ### Highlights

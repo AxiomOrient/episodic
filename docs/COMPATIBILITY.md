@@ -15,7 +15,8 @@ Last Updated: 2026-03-05
 |---|---|---|---|
 | `0.1.x` | `om-v2` | prompt contract `2.0.0` | legacy OMv2 subset |
 | `0.2.0` | `om-v2` | prompt contract `2.0.0` + OMv2 full protocol set | maintained |
-| `0.2.1` | `om-v2` | prompt contract `2.0.0` + OMv2 full protocol set | active |
+| `0.2.1` | `om-v2` | prompt contract `2.0.0` + OMv2 full protocol set | maintained |
+| `0.2.2` | `om-v2` | prompt contract `2.0.0` + OMv2 full protocol set | active |
 
 ## 3. Compatibility Guarantees
 - Within a patch release (`0.1.a -> 0.1.b`):

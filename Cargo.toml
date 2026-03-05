@@ -1,6 +1,6 @@
 [package]
 name = "episodic"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 description = "Reusable Observational Memory core models and pure transforms."
 license = "Apache-2.0"
