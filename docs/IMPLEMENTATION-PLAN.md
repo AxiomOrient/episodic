@@ -225,6 +225,7 @@ response_profile=planning_doc
   - `EPI-OMV2-028`: deterministic identifier extraction completed for CJK non-whitespace error strings
   - `EPI-OMV2-029`: release checklist synchronization completed with executed gates
   - `EPI-OMV2-030`: option 2 hotspot precision pass completed (question task-signal precision, parse metadata single-tokenization, prompt contract marker single-source, snapshot/continuation clone reduction)
+  - `EPI-OMV2-031`: option 2 hotspot micro-benchmark harness added (criterion bench target for parse/continuation)
 - Code evidence:
   - `src/model.rs`: `OmThreadRefV2` protocol type
   - `src/transform/scope.rs`: `resolve_canonical_thread_ref(...)`
@@ -249,6 +250,7 @@ response_profile=planning_doc
   - `src/prompt/contract.rs`, `src/prompt/{system.rs,user.rs}`: contract marker 문구 single-source 상수화
   - `src/transform/snapshot.rs`, `src/transform/observer/continuation.rs`: 불필요 clone 경감
   - `src/transform/tests/observer.rs`: question signal 정밀화 회귀 테스트 추가
+  - `benches/hotpaths.rs`, `Cargo.toml`: micro-benchmark target and benchmark dependency wiring
   - `src/prompt/mod.rs`, `src/lib.rs`: parser/export wiring
   - `tests/fixtures/contracts/*`: protocol conformance fixtures (observer/reflector, valid/invalid)
   - `tests/contract_fixtures.rs`: fixture-driven parser conformance tests
@@ -272,6 +274,7 @@ response_profile=planning_doc
   - `cargo test -q resolve_continuation_update_preserves_previous_fields_on_weaker_candidate`
   - `cargo test -q deterministic_continuation_extracts_identifier_from_cjk_error_without_whitespace`
   - `cargo test -q transform::tests::observer::deterministic_continuation_ignores_code_like_question_token_without_request_cues`
+  - `cargo bench --bench hotpaths --no-run`
   - `cargo fmt --all`
   - `cargo fmt --all -- --check`
   - `cargo clippy --all-targets -- -D warnings`

@@ -22,3 +22,8 @@ serde_json = "1.0.142"
 thiserror = "2.0.12"
 
 [dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "hotpaths"
+harness = false
