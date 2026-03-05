@@ -127,6 +127,38 @@ fn deterministic_continuation_returns_none_without_task_signal() {
 }
 
 #[test]
+fn deterministic_continuation_recognizes_english_question_task_signal() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "Can you check this?".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task.as_deref(), Some("Can you check this?"));
+    assert!(
+        response
+            .as_deref()
+            .is_some_and(|value| value.contains("Respond to user request"))
+    );
+}
+
+#[test]
+fn deterministic_continuation_ignores_code_like_question_token_without_request_cues() {
+    let pending = vec![OmPendingMessage {
+        id: "m1".to_string(),
+        role: "user".to_string(),
+        text: "status=ok?trace_id=E409".to_string(),
+        created_at_rfc3339: None,
+    }];
+
+    let (task, response) = infer_deterministic_continuation(&pending);
+    assert_eq!(task, None);
+    assert_eq!(response, None);
+}
+
+#[test]
 fn deterministic_continuation_recognizes_korean_task_signal() {
     let pending = vec![OmPendingMessage {
         id: "m1".to_string(),

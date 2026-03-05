@@ -31,6 +31,9 @@ pub fn resolve_continuation_update(
     let previous_suggested =
         previous.and_then(|state| normalize_text(state.suggested_response.as_deref()));
     let previous_confidence = previous.map(|state| state.confidence_milli).unwrap_or(0);
+    let previous_scope_key = previous.map(|state| state.scope_key.as_str());
+    let previous_thread_id = previous.map(|state| state.thread_id.as_str());
+    let previous_updated_at = previous.map(|state| state.updated_at_rfc3339.as_str());
 
     let candidate_confidence = candidate.confidence_milli.min(1000);
     let candidate_task = if candidate_confidence >= policy.min_confidence_milli_for_task {
@@ -44,27 +47,38 @@ pub fn resolve_continuation_update(
         } else {
             None
         };
+    let normalized_scope_key = normalize_text(Some(&candidate.scope_key));
+    let normalized_thread_id = normalize_text(Some(&candidate.thread_id));
+    let normalized_updated_at = normalize_text(Some(&candidate.updated_at_rfc3339));
 
-    let current_task = if candidate_task.is_some() {
-        candidate_task.clone()
-    } else if policy.preserve_existing_task_on_weaker_update {
-        previous_task.clone()
-    } else {
-        None
-    };
+    let current_task = candidate_task
+        .as_deref()
+        .or_else(|| {
+            policy
+                .preserve_existing_task_on_weaker_update
+                .then_some(previous_task.as_deref())
+                .flatten()
+        })
+        .map(ToString::to_string);
 
     let (suggested_response, adopted_candidate_suggested) =
-        if let Some(candidate_value) = candidate_suggested {
+        if let Some(candidate_value) = candidate_suggested.as_deref() {
             if policy.only_improve_suggested_response
                 && previous_suggested.is_some()
                 && previous_confidence > candidate_confidence
             {
-                (previous_suggested.clone(), false)
+                (
+                    previous_suggested.as_deref().map(ToString::to_string),
+                    false,
+                )
             } else {
-                (Some(candidate_value), true)
+                (Some(candidate_value.to_string()), true)
             }
         } else if policy.only_improve_suggested_response {
-            (previous_suggested.clone(), false)
+            (
+                previous_suggested.as_deref().map(ToString::to_string),
+                false,
+            )
         } else {
             (None, false)
         };
@@ -74,12 +88,16 @@ pub fn resolve_continuation_update(
         return None;
     }
 
-    let scope_key = normalize_text(Some(&candidate.scope_key))
-        .or_else(|| previous.map(|state| state.scope_key.clone()))
-        .unwrap_or_default();
-    let thread_id = normalize_text(Some(&candidate.thread_id))
-        .or_else(|| previous.map(|state| state.thread_id.clone()))
-        .unwrap_or_default();
+    let scope_key = normalized_scope_key
+        .as_deref()
+        .or(previous_scope_key)
+        .unwrap_or_default()
+        .to_string();
+    let thread_id = normalized_thread_id
+        .as_deref()
+        .or(previous_thread_id)
+        .unwrap_or_default()
+        .to_string();
     let source_message_ids = if !candidate_contributed {
         previous
             .map(|state| state.source_message_ids.clone())
@@ -95,12 +113,14 @@ pub fn resolve_continuation_update(
         }
     };
     let updated_at_rfc3339 = if !candidate_contributed {
-        previous
-            .map(|state| state.updated_at_rfc3339.clone())
+        previous_updated_at
+            .map(ToString::to_string)
             .unwrap_or_default()
     } else {
-        normalize_text(Some(&candidate.updated_at_rfc3339))
-            .or_else(|| previous.map(|state| state.updated_at_rfc3339.clone()))
+        normalized_updated_at
+            .as_deref()
+            .or(previous_updated_at)
+            .map(ToString::to_string)
             .unwrap_or_default()
     };
     let staleness_budget_ms = if !candidate_contributed {

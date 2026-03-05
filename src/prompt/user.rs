@@ -1,6 +1,7 @@
 use crate::reflector_compression_guidance;
 use crate::xml::escape_xml_text;
 
+use super::contract::OM_PROMPT_CONTRACT_MARKERS_XML_INLINE;
 use super::formatter::format_multi_thread_observer_messages_for_prompt;
 use super::{OmObserverPromptInput, OmObserverThreadMessages, OmReflectorPromptInput};
 
@@ -58,9 +59,9 @@ pub fn build_observer_user_prompt(input: OmObserverPromptInput<'_>) -> String {
     }
 
     prompt.push_str("## Your Task\n\n");
-    prompt.push_str(
-        "Extract new observations from the message history. Keep observations factual and concise. Do not duplicate previous observations. observed_message_ids must use only provided ids. Include contract markers exactly as: <contract-name>axiomme.om.prompt</contract-name>, <contract-version>2.0.0</contract-version>, and <protocol-version>om-v2</protocol-version>.",
-    );
+    prompt.push_str("Extract new observations from the message history. Keep observations factual and concise. Do not duplicate previous observations. observed_message_ids must use only provided ids. Include contract markers exactly as: ");
+    prompt.push_str(OM_PROMPT_CONTRACT_MARKERS_XML_INLINE);
+    prompt.push('.');
     if input.skip_continuation_hints {
         prompt.push_str("\n\n");
         prompt.push_str(NO_CONTINUATION_HINT_SECTIONS);
@@ -97,7 +98,11 @@ pub fn build_multi_thread_observer_user_prompt(
     }
     prompt.push_str("\n\n---\n\n");
     prompt.push_str("## Your Task\n\n");
-    prompt.push_str("Extract new observations for each thread. Include contract markers exactly as: <contract-name>axiomme.om.prompt</contract-name>, <contract-version>2.0.0</contract-version>, and <protocol-version>om-v2</protocol-version>. Output observations grouped by thread using <thread id=\"...\"> blocks inside <observations>.\n\n");
+    prompt.push_str(
+        "Extract new observations for each thread. Include contract markers exactly as: ",
+    );
+    prompt.push_str(OM_PROMPT_CONTRACT_MARKERS_XML_INLINE);
+    prompt.push_str(". Output observations grouped by thread using <thread id=\"...\"> blocks inside <observations>.\n\n");
     prompt.push_str("Example output format:\n");
     prompt.push_str("<observations>\n");
     prompt.push_str("<thread id=\"thread-1\">\n");

@@ -190,9 +190,105 @@ fn has_chinese_task_signal(text: &str) -> bool {
     .any(|marker| text.contains(marker))
 }
 
+fn has_question_task_signal(text: &str, lower: &str) -> bool {
+    if !(lower.contains('?') || text.contains('？')) {
+        return false;
+    }
+
+    let trimmed = lower.trim_start();
+    if [
+        "what ", "why ", "how ", "when ", "where ", "which ", "who ", "can ", "could ", "would ",
+        "will ", "should ", "is ", "are ", "do ", "does ", "did ",
+    ]
+    .iter()
+    .any(|prefix| trimmed.starts_with(prefix))
+    {
+        return true;
+    }
+
+    if [
+        "can you",
+        "could you",
+        "would you",
+        "will you",
+        "please",
+        "help",
+    ]
+    .iter()
+    .any(|cue| lower.contains(cue))
+    {
+        return true;
+    }
+
+    if [
+        "가능",
+        "할 수",
+        "해줄",
+        "해 줄",
+        "어떻게",
+        "왜",
+        "무엇",
+        "뭐",
+        "언제",
+        "어디",
+        "나요",
+        "까요",
+        "습니까",
+    ]
+    .iter()
+    .any(|cue| text.contains(cue) || lower.contains(cue))
+    {
+        return true;
+    }
+
+    if [
+        "ですか",
+        "ますか",
+        "でしょうか",
+        "かな",
+        "できますか",
+        "どう",
+        "なぜ",
+        "何",
+        "いつ",
+        "どこ",
+    ]
+    .iter()
+    .any(|cue| text.contains(cue))
+    {
+        return true;
+    }
+
+    if [
+        "吗",
+        "嗎",
+        "呢",
+        "如何",
+        "怎么",
+        "怎麼",
+        "为什么",
+        "為什麼",
+        "可以",
+        "能否",
+        "何时",
+        "何時",
+        "哪里",
+        "哪裡",
+        "请问",
+        "請問",
+    ]
+    .iter()
+    .any(|cue| text.contains(cue))
+    {
+        return true;
+    }
+
+    false
+}
+
 fn has_task_signal(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
-    if lower.contains('?') || text.contains('？') {
+    if has_question_task_signal(text, &lower) {
         return true;
     }
     if has_english_task_signal(&lower) {

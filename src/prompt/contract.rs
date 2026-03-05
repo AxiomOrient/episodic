@@ -5,6 +5,10 @@ use crate::{OmObserverRequest, OmReflectorRequest};
 pub const OM_PROMPT_CONTRACT_NAME: &str = "axiomme.om.prompt";
 pub const OM_PROMPT_CONTRACT_VERSION: &str = "2.0.0";
 pub const OM_PROTOCOL_VERSION: &str = "om-v2";
+pub const OM_PROMPT_CONTRACT_MARKERS_XML_BLOCK: &str = r#"<contract-name>axiomme.om.prompt</contract-name>
+<contract-version>2.0.0</contract-version>
+<protocol-version>om-v2</protocol-version>"#;
+pub const OM_PROMPT_CONTRACT_MARKERS_XML_INLINE: &str = "<contract-name>axiomme.om.prompt</contract-name>, <contract-version>2.0.0</contract-version>, and <protocol-version>om-v2</protocol-version>";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

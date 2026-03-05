@@ -207,7 +207,7 @@ response_profile=planning_doc
 - Phase 5 -> `EPI-OMV2-024`
 - Phase 6 -> `EPI-OMV2-025`
 
-## Execution Update (2026-03-04)
+## Execution Update (2026-03-05)
 - Completed:
   - `EPI-OMV2-015`: protocol freeze artifacts added (`docs/PROTOCOL.md`)
   - `EPI-OMV2-016`: compatibility/governance artifacts added (`docs/COMPATIBILITY.md`, `docs/RELEASE_CHECKLIST.md`)
@@ -224,6 +224,7 @@ response_profile=planning_doc
   - `EPI-OMV2-027`: continuation reducer metadata consistency completed (non-winning candidate keeps prior metadata)
   - `EPI-OMV2-028`: deterministic identifier extraction completed for CJK non-whitespace error strings
   - `EPI-OMV2-029`: release checklist synchronization completed with executed gates
+  - `EPI-OMV2-030`: option 2 hotspot precision pass completed (question task-signal precision, parse metadata single-tokenization, prompt contract marker single-source, snapshot/continuation clone reduction)
 - Code evidence:
   - `src/model.rs`: `OmThreadRefV2` protocol type
   - `src/transform/scope.rs`: `resolve_canonical_thread_ref(...)`
@@ -243,6 +244,11 @@ response_profile=planning_doc
   - `src/transform/reflection/apply.rs`: unmatched coverage no-op guard
   - `src/transform/observer/continuation.rs`: metadata consistency rules for non-winning candidate
   - `src/transform/observer/synthesis.rs`: span-based identifier extraction for non-whitespace CJK error text
+  - `src/transform/observer/synthesis.rs`: question-based task signal precision gating (`?` 단독 오탐 완화)
+  - `src/parse/thread.rs`: current/suggested metadata 추출 단일 토큰화 경로
+  - `src/prompt/contract.rs`, `src/prompt/{system.rs,user.rs}`: contract marker 문구 single-source 상수화
+  - `src/transform/snapshot.rs`, `src/transform/observer/continuation.rs`: 불필요 clone 경감
+  - `src/transform/tests/observer.rs`: question signal 정밀화 회귀 테스트 추가
   - `src/prompt/mod.rs`, `src/lib.rs`: parser/export wiring
   - `tests/fixtures/contracts/*`: protocol conformance fixtures (observer/reflector, valid/invalid)
   - `tests/contract_fixtures.rs`: fixture-driven parser conformance tests
@@ -265,6 +271,7 @@ response_profile=planning_doc
   - `cargo test -q apply_reflection_response_v2_noops_when_covered_ids_do_not_match_entries`
   - `cargo test -q resolve_continuation_update_preserves_previous_fields_on_weaker_candidate`
   - `cargo test -q deterministic_continuation_extracts_identifier_from_cjk_error_without_whitespace`
+  - `cargo test -q transform::tests::observer::deterministic_continuation_ignores_code_like_question_token_without_request_cues`
   - `cargo fmt --all`
   - `cargo fmt --all -- --check`
   - `cargo clippy --all-targets -- -D warnings`

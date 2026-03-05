@@ -180,7 +180,7 @@ pub fn materialize_search_visible_snapshot(
         .filter_map(|entry| normalize_text(&entry.entry_id))
         .collect::<Vec<_>>();
 
-    let mut visible_entries = activated.clone();
+    let mut visible_entries = activated;
     if policy.include_buffered_entries {
         let mut seen_ids = visible_entries
             .iter()

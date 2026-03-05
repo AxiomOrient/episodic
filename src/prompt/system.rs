@@ -1,3 +1,5 @@
+use super::contract::OM_PROMPT_CONTRACT_MARKERS_XML_BLOCK;
+
 const OBSERVER_EXTRACTION_INSTRUCTIONS: &str = r#"CRITICAL: DISTINGUISH USER ASSERTIONS FROM QUESTIONS
 
 When the user TELLS you something about themselves, mark it as an assertion.
@@ -57,14 +59,8 @@ const MEMORY_ROLE_OBSERVER: &str = "You are the memory consciousness of an AI as
 const MEMORY_ROLE_REFLECTOR: &str = "You are the memory consciousness of an AI assistant. Your memory observation reflections will be the ONLY information the assistant has about past interactions with this user.";
 const MEMORY_ONLY_INVARIANT: &str = "Remember: these observations are the assistant's only memory.";
 const USER_PRIORITY_INVARIANT: &str = "If the user asked a new question or gave a new task, ensure <current-task> marks it as priority and <suggested-response> aligns with immediate user-facing continuity.";
-const CONTRACT_MARKER_INVARIANT: &str = r#"Always include these contract markers in XML output:
-<contract-name>axiomme.om.prompt</contract-name>
-<contract-version>2.0.0</contract-version>
-<protocol-version>om-v2</protocol-version>"#;
+const CONTRACT_MARKER_INVARIANT: &str = "Always include these contract markers in XML output:";
 const OUTPUT_XML_CONTRACT: &str = r#"Your output MUST use XML tags:
-<contract-name>axiomme.om.prompt</contract-name>
-<contract-version>2.0.0</contract-version>
-<protocol-version>om-v2</protocol-version>
 <observations>...</observations>
 <current-task>...</current-task>
 <suggested-response>...</suggested-response>"#;
@@ -94,6 +90,7 @@ Thread attribution is handled by the system.
 
 {MEMORY_ONLY_INVARIANT}
 {CONTRACT_MARKER_INVARIANT}
+{OM_PROMPT_CONTRACT_MARKERS_XML_BLOCK}
 
 User messages are extremely important. If the user asks a question or gives a new task, make it clear in <current-task> that this is the priority. If the assistant needs to respond to the user, indicate in <suggested-response> that it should pause for user reply before continuing other tasks."#
     )
@@ -138,6 +135,7 @@ Continue with implementation
 
 {MEMORY_ONLY_INVARIANT}
 {CONTRACT_MARKER_INVARIANT}
+{OM_PROMPT_CONTRACT_MARKERS_XML_BLOCK}
 If user intent changes per thread, preserve it in that thread's <current-task> and <suggested-response>."#
     )
 }
@@ -186,6 +184,7 @@ When observations include thread sections:
 
 === OUTPUT FORMAT ===
 
+{OM_PROMPT_CONTRACT_MARKERS_XML_BLOCK}
 {OUTPUT_XML_CONTRACT}
 
 {USER_PRIORITY_INVARIANT}"#

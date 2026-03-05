@@ -1,7 +1,9 @@
 use super::OmMultiThreadObserverSection;
 use super::OmParseMode;
-use super::sections::extract_and_remove_tag_sections_return_last;
-use super::tokens::{TagKind, TagToken, is_attr_name_char, is_tag_name_char, parse_tag_tokens};
+use super::sections::section_ranges_for_tag;
+use super::tokens::{
+    TagKind, TagSectionRange, TagToken, is_attr_name_char, is_tag_name_char, parse_tag_tokens,
+};
 use crate::xml::unescape_xml_attribute;
 
 fn parse_tag_attribute(open_tag: &str, key: &str) -> Option<String> {
@@ -94,28 +96,80 @@ pub(super) fn parse_thread_observer_section(
         return None;
     }
 
-    let current_task_tokens = parse_tag_tokens(content);
-    let (without_current_task, current_task) = extract_and_remove_tag_sections_return_last(
+    let tokens = parse_tag_tokens(content);
+    let current_task_ranges = section_ranges_for_tag(content, &tokens, "current-task", mode);
+    let current_task = extract_last_non_empty_content_from_ranges(content, &current_task_ranges);
+
+    let suggested_ranges = section_ranges_for_tag(content, &tokens, "suggested-response", mode)
+        .into_iter()
+        .filter(|range| {
+            current_task_ranges
+                .iter()
+                .all(|current| !ranges_overlap(range, current))
+        })
+        .collect::<Vec<_>>();
+    let suggested_response = extract_last_non_empty_content_from_ranges(content, &suggested_ranges);
+
+    let mut stripped_ranges = current_task_ranges;
+    stripped_ranges.extend(section_ranges_for_tag(
         content,
-        &current_task_tokens,
-        "current-task",
+        &tokens,
+        "suggested-response",
         mode,
-    );
-    let suggested_tokens = parse_tag_tokens(&without_current_task);
-    let (without_suggested_response, suggested_response) =
-        extract_and_remove_tag_sections_return_last(
-            &without_current_task,
-            &suggested_tokens,
-            "suggested-response",
-            mode,
-        );
+    ));
+    let stripped_observations = strip_tag_ranges(content, stripped_ranges);
 
     Some(OmMultiThreadObserverSection {
         thread_id: thread_id.to_string(),
-        observations: without_suggested_response.trim().to_string(),
+        observations: stripped_observations,
         current_task,
         suggested_response,
     })
+}
+
+fn ranges_overlap(left: &TagSectionRange, right: &TagSectionRange) -> bool {
+    left.open_start < right.close_end && right.open_start < left.close_end
+}
+
+fn extract_last_non_empty_content_from_ranges(
+    text: &str,
+    ranges: &[TagSectionRange],
+) -> Option<String> {
+    ranges
+        .iter()
+        .rev()
+        .filter_map(|range| text.get(range.content_start..range.content_end))
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+fn strip_tag_ranges(text: &str, mut ranges: Vec<TagSectionRange>) -> String {
+    if ranges.is_empty() {
+        return text.trim().to_string();
+    }
+
+    ranges.sort_by(|left, right| {
+        left.open_start
+            .cmp(&right.open_start)
+            .then_with(|| left.close_end.cmp(&right.close_end))
+    });
+
+    let mut stripped = String::with_capacity(text.len());
+    let mut cursor = 0usize;
+    for range in ranges {
+        if range.open_start > cursor
+            && let Some(prefix) = text.get(cursor..range.open_start)
+        {
+            stripped.push_str(prefix);
+        }
+        cursor = cursor.max(range.close_end);
+    }
+    if let Some(suffix) = text.get(cursor..) {
+        stripped.push_str(suffix);
+    }
+
+    stripped.trim().to_string()
 }
 
 struct OpenThread {
